@@ -1,6 +1,6 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { BadgeCheck, BanknoteArrowDown, CalendarClock, Shield, Trophy } from "lucide-react";
+import { BanknoteArrowDown, CalendarClock, Shield, Trophy } from "lucide-react";
 import { useAppStore } from "../lib/app-state";
 
 export const Route = createFileRoute("/admin")({
@@ -19,6 +19,7 @@ function AdminPage() {
     settleMatch,
     approveWithdrawal,
     rejectWithdrawal,
+    approveKyc,
   } = useAppStore();
 
   if (!currentUser || currentUser.role !== "admin") {
@@ -54,6 +55,7 @@ function AdminShell() {
     settleMatch,
     approveWithdrawal,
     rejectWithdrawal,
+    approveKyc,
   } = useAppStore();
 
   const [sport, setSport] = useState("Football");
@@ -75,8 +77,8 @@ function AdminShell() {
     [bets, matches.length, users.length, withdrawals.length],
   );
 
-  const createMatch = () => {
-    createLocalMatch({
+  const createMatch = async () => {
+    await createLocalMatch({
       sport,
       league,
       home,
@@ -190,7 +192,7 @@ function AdminShell() {
               </div>
               <button
                 type="button"
-                onClick={createMatch}
+                onClick={() => void createMatch()}
                 className="rounded-xl bg-gradient-primary px-4 py-3 text-sm font-semibold text-primary-foreground"
               >
                 Add match
@@ -234,7 +236,7 @@ function AdminShell() {
                         <button
                           type="button"
                           onClick={() =>
-                            updateMatch(match.id, {
+                            void updateMatch(match.id, {
                               live: !match.live,
                               status: match.live ? "upcoming" : "live",
                             })
@@ -245,7 +247,7 @@ function AdminShell() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => settleMatch({ matchId: match.id, result: "home" })}
+                          onClick={() => void settleMatch({ matchId: match.id, result: "home" })}
                           className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground"
                         >
                           Settle home
@@ -288,14 +290,14 @@ function AdminShell() {
                           <div className="flex gap-2">
                             <button
                               type="button"
-                              onClick={() => approveWithdrawal(item.id)}
+                              onClick={() => void approveWithdrawal(item.id)}
                               className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground"
                             >
                               Approve
                             </button>
                             <button
                               type="button"
-                              onClick={() => rejectWithdrawal(item.id)}
+                              onClick={() => void rejectWithdrawal(item.id)}
                               className="rounded-lg border border-border bg-card px-3 py-2 text-xs font-medium"
                             >
                               Reject
@@ -326,6 +328,15 @@ function AdminShell() {
                         <div className="text-right text-xs uppercase tracking-[0.18em] text-muted-foreground">
                           {user.role}
                           <div className="mt-1 capitalize">{user.kycStatus}</div>
+                          {user.role !== "admin" && user.kycStatus !== "verified" ? (
+                            <button
+                              type="button"
+                              onClick={() => void approveKyc(user.id)}
+                              className="mt-2 rounded-lg border border-border bg-card px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-foreground hover:bg-secondary"
+                            >
+                              Approve KYC
+                            </button>
+                          ) : null}
                         </div>
                       </div>
                     </div>

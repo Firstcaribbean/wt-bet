@@ -347,7 +347,7 @@ function Index() {
                 </Link>
                 <button
                   type="button"
-                  onClick={signOut}
+                  onClick={() => void signOut()}
                   className="hidden rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium hover:bg-secondary sm:block"
                 >
                   Sign out
@@ -742,8 +742,8 @@ function Index() {
                 setStake={setStake}
                 totalOdds={totalOdds}
                 payout={payout}
-                onPlaceBet={() => {
-                  placeAccumulatorBet({
+                onPlaceBet={async () => {
+                  await placeAccumulatorBet({
                     stake: stakeValue,
                     selections: slip.map((selection) => ({
                       matchId: selection.matchId,
@@ -819,8 +819,8 @@ function Index() {
               setStake={setStake}
               totalOdds={totalOdds}
               payout={payout}
-              onPlaceBet={() => {
-                placeAccumulatorBet({
+              onPlaceBet={async () => {
+                await placeAccumulatorBet({
                   stake: stakeValue,
                   selections: slip.map((selection) => ({
                     matchId: selection.matchId,
@@ -877,7 +877,7 @@ function BetSlip({
   setStake: (value: string) => void;
   totalOdds: number;
   payout: number;
-  onPlaceBet: () => void;
+  onPlaceBet: () => Promise<void>;
   onRemove: (id: string) => void;
   onClear: () => void;
 }) {
@@ -990,7 +990,7 @@ function BetSlip({
 
             <button
               type="button"
-              onClick={onPlaceBet}
+              onClick={() => void onPlaceBet()}
               className="w-full rounded-lg bg-gradient-primary py-3 text-sm font-bold text-primary-foreground shadow-elegant transition-transform hover:scale-[1.01]"
             >
               Place bet

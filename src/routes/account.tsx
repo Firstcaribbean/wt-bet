@@ -37,14 +37,14 @@ function AccountPage() {
   );
   const myNotifications = useMemo(() => notifications.slice(0, 4), [notifications]);
 
-  const handleSubmit = (event: FormEvent) => {
+  const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     try {
       if (mode === "sign-up") {
-        signUp({ name, email, password });
+        await signUp({ name, email, password });
         setMessage("Account created and signed in.");
       } else {
-        signIn({ email, password });
+        await signIn({ email, password });
         setMessage("Signed in successfully.");
       }
     } catch (error) {
@@ -52,9 +52,9 @@ function AccountPage() {
     }
   };
 
-  const handleWithdrawal = () => {
+  const handleWithdrawal = async () => {
     try {
-      requestWithdrawal(Number(withdrawAmount));
+      await requestWithdrawal(Number(withdrawAmount));
       setMessage("Withdrawal request created.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Unable to request withdrawal.");
@@ -101,7 +101,7 @@ function AccountPage() {
               {currentUser ? (
                 <button
                   type="button"
-                  onClick={signOut}
+                  onClick={() => void signOut()}
                   className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium hover:bg-secondary"
                 >
                   <LogOut className="h-4 w-4" />
@@ -237,7 +237,7 @@ function AccountPage() {
               </p>
               <button
                 type="button"
-                onClick={verifyKyc}
+                onClick={() => void verifyKyc()}
                 className="mt-4 inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium hover:bg-secondary"
               >
                 <LockKeyhole className="h-4 w-4" />
