@@ -13,6 +13,7 @@ import { Route as SportsRouteImport } from './routes/sports'
 import { Route as PromotionsRouteImport } from './routes/promotions'
 import { Route as LiveRouteImport } from './routes/live'
 import { Route as HelpRouteImport } from './routes/help'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AccountRouteImport } from './routes/account'
 import { Route as IndexRouteImport } from './routes/index'
 
@@ -36,6 +37,11 @@ const HelpRoute = HelpRouteImport.update({
   path: '/help',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AccountRoute = AccountRouteImport.update({
   id: '/account',
   path: '/account',
@@ -50,6 +56,7 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
+  '/admin': typeof AdminRoute
   '/help': typeof HelpRoute
   '/live': typeof LiveRoute
   '/promotions': typeof PromotionsRoute
@@ -58,6 +65,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
+  '/admin': typeof AdminRoute
   '/help': typeof HelpRoute
   '/live': typeof LiveRoute
   '/promotions': typeof PromotionsRoute
@@ -67,6 +75,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
+  '/admin': typeof AdminRoute
   '/help': typeof HelpRoute
   '/live': typeof LiveRoute
   '/promotions': typeof PromotionsRoute
@@ -74,13 +83,16 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/account' | '/help' | '/live' | '/promotions' | '/sports'
+  fullPaths:
+    '/' | '/account' | '/admin' | '/help' | '/live' | '/promotions' | '/sports'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/account' | '/help' | '/live' | '/promotions' | '/sports'
+  to:
+    '/' | '/account' | '/admin' | '/help' | '/live' | '/promotions' | '/sports'
   id:
     | '__root__'
     | '/'
     | '/account'
+    | '/admin'
     | '/help'
     | '/live'
     | '/promotions'
@@ -90,6 +102,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AccountRoute: typeof AccountRoute
+  AdminRoute: typeof AdminRoute
   HelpRoute: typeof HelpRoute
   LiveRoute: typeof LiveRoute
   PromotionsRoute: typeof PromotionsRoute
@@ -126,6 +139,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HelpRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/account': {
       id: '/account'
       path: '/account'
@@ -146,6 +166,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AccountRoute: AccountRoute,
+  AdminRoute: AdminRoute,
   HelpRoute: HelpRoute,
   LiveRoute: LiveRoute,
   PromotionsRoute: PromotionsRoute,

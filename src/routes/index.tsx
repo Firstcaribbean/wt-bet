@@ -1,5 +1,5 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState, type LucideIcon } from "react";
+import { useMemo, useState, type LucideIcon } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -31,6 +31,7 @@ import {
   X,
   Zap,
 } from "lucide-react";
+import { useAppStore } from "../lib/app-state";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -54,8 +55,10 @@ export const Route = createFileRoute("/")({
 
 type Selection = {
   id: string;
+  matchId: string;
   match: string;
   market: string;
+  selection: "home" | "draw" | "away";
   pick: string;
   odds: number;
 };
@@ -228,37 +231,30 @@ const activityItems = [
   { label: "Payout speed", value: "Instant" },
 ];
 
-const accountItems = [
-  { label: "Balance", value: "$1,248.50", icon: Wallet },
-  { label: "Verification", value: "Pending documents", icon: LockKeyhole },
-  { label: "Withdrawal fee", value: "10% of winnings", icon: Coins },
-  { label: "Support", value: "Live 24/7", icon: Radio },
-];
-
 function Index() {
+  const { currentUser, theme, setTheme, placeAccumulatorBet, matches, signOut } = useAppStore();
   const [slip, setSlip] = useState<Selection[]>([]);
   const [stake, setStake] = useState<string>("10");
   const [slipOpen, setSlipOpen] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(false);
   const [selectedSport, setSelectedSport] = useState(sports[0].name);
   const [selectedFilter, setSelectedFilter] = useState("Live now");
   const [selectedFeed, setSelectedFeed] = useState("Popular");
 
-  useEffect(() => {
-    const storedTheme = window.localStorage.getItem("wt-bet-theme");
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    const nextTheme = storedTheme ? storedTheme === "dark" : prefersDark;
-    setIsDarkMode(nextTheme);
-  }, []);
-
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", isDarkMode);
-    window.localStorage.setItem("wt-bet-theme", isDarkMode ? "dark" : "light");
-  }, [isDarkMode]);
-
   const totalOdds = useMemo(() => slip.reduce((acc, selection) => acc * selection.odds, 1), [slip]);
   const stakeValue = Number(stake) || 0;
   const payout = stakeValue * totalOdds;
+  const balance = currentUser?.balance ?? 0;
+  const accountStatus = currentUser?.kycStatus ?? "unverified";
+  const accountItems = [
+    { label: "Balance", value: `$${balance.toFixed(2)}`, icon: Wallet },
+    {
+      label: "Verification",
+      value: accountStatus === "verified" ? "Verified" : "Pending documents",
+      icon: LockKeyhole,
+    },
+    { label: "Withdrawal fee", value: "10% of winnings", icon: Coins },
+    { label: "Support", value: "Live 24/7", icon: Radio },
+  ];
 
   const addSelection = (selection: Selection) => {
     setSlip((current) => {
@@ -322,29 +318,61 @@ function Index() {
             <button className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground">
               <Bell className="h-4 w-4" />
             </button>
-            <div className="hidden items-center gap-2 rounded-lg border border-border bg-surface px-3 py-1.5 sm:flex">
-              <div className="h-2 w-2 rounded-full bg-success" />
-              <div className="flex flex-col leading-tight">
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                  Balance
-                </span>
-                <span className="text-sm font-semibold tabular-nums">$1,248.50</span>
-              </div>
-            </div>
-            <Link
-              to="/account"
-              className="hidden rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium hover:bg-secondary sm:block"
-            >
-              Sign in
-            </Link>
+            {currentUser ? (
+              <>
+                <div className="hidden items-center gap-2 rounded-lg border border-border bg-surface px-3 py-1.5 sm:flex">
+                  <div className="h-2 w-2 rounded-full bg-success" />
+                  <div className="flex flex-col leading-tight">
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                      Balance
+                    </span>
+                    <span className="text-sm font-semibold tabular-nums">
+                      ${currentUser.balance.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+                {currentUser.role === "admin" ? (
+                  <Link
+                    to="/admin"
+                    className="hidden rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium hover:bg-secondary sm:block"
+                  >
+                    Admin
+                  </Link>
+                ) : null}
+                <Link
+                  to="/account"
+                  className="hidden rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium hover:bg-secondary sm:block"
+                >
+                  Account
+                </Link>
+                <button
+                  type="button"
+                  onClick={signOut}
+                  className="hidden rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium hover:bg-secondary sm:block"
+                >
+                  Sign out
+                </button>
+              </>
+            ) : (
+              <Link
+                to="/account"
+                className="hidden rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium hover:bg-secondary sm:block"
+              >
+                Sign in
+              </Link>
+            )}
             <button
               type="button"
-              onClick={() => setIsDarkMode((value) => !value)}
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
               className="flex h-9 items-center gap-2 rounded-lg border border-border bg-surface px-3 text-sm font-medium hover:bg-secondary"
               aria-label="Toggle theme"
             >
-              {isDarkMode ? <SunMedium className="h-4 w-4" /> : <MoonStar className="h-4 w-4" />}
-              <span className="hidden sm:inline">{isDarkMode ? "Light" : "Dark"}</span>
+              {theme === "dark" ? (
+                <SunMedium className="h-4 w-4" />
+              ) : (
+                <MoonStar className="h-4 w-4" />
+              )}
+              <span className="hidden sm:inline">{theme === "dark" ? "Light" : "Dark"}</span>
             </button>
             <Link
               to="/account"
@@ -426,45 +454,48 @@ function Index() {
           </aside>
 
           <main className="min-w-0 space-y-6">
-            <section className="relative overflow-hidden rounded-2xl bg-gradient-hero p-8 shadow-elegant lg:p-10">
-              <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-accent/25 blur-3xl" />
-              <div className="absolute -bottom-32 -left-16 h-72 w-72 rounded-full bg-primary-glow/30 blur-3xl" />
-              <div className="relative grid gap-8 lg:grid-cols-[minmax(0,1.5fr)_minmax(280px,0.85fr)] lg:items-end">
+            <section className="relative overflow-hidden rounded-2xl bg-gradient-hero p-5 shadow-elegant lg:p-6">
+              <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-accent/20 blur-3xl" />
+              <div className="absolute -bottom-24 -left-16 h-64 w-64 rounded-full bg-primary-glow/25 blur-3xl" />
+              <div className="relative grid gap-5 lg:grid-cols-[minmax(0,1.2fr)_320px] lg:items-start">
                 <div className="max-w-2xl text-primary-foreground">
-                  <div className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-medium backdrop-blur">
+                  <div className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-medium backdrop-blur">
                     <Sparkles className="h-3.5 w-3.5" />
-                    W&amp;T Bet - organized for live wagering, admin control, and trust
+                    W&amp;T Bet - live wagering, account control, and admin tools
                   </div>
-                  <h1 className="font-display text-3xl font-bold leading-tight tracking-tight sm:text-4xl lg:text-5xl">
-                    A sportsbook experience that feels calm, current, and in control.
+                  <h1 className="max-w-xl font-display text-2xl font-bold leading-tight tracking-tight sm:text-3xl lg:text-[2.55rem]">
+                    A betting dashboard that stays clear, compact, and ready to use.
                   </h1>
-                  <p className="mt-3 max-w-xl text-sm text-white/80 sm:text-base">
-                    Live odds, advanced markets, and account flows are presented in a clean layout
-                    so bettors can move quickly without losing context.
+                  <p className="mt-3 max-w-xl text-sm leading-6 text-white/80 sm:text-[15px]">
+                    Browse live odds, check account status, and move between betting and admin
+                    screens without the oversized landing-page feel.
                   </p>
-                  <p className="mt-3 text-xs uppercase tracking-[0.28em] text-white/65">
+                  <p className="mt-3 text-[11px] uppercase tracking-[0.28em] text-white/65">
                     Browsing {selectedSport} · {selectedFilter.toLowerCase()}
                   </p>
-                  <div className="mt-6 flex flex-wrap gap-3">
+                  <div className="mt-5 flex flex-wrap gap-2.5">
                     <Link
                       to="/sports"
-                      className="inline-flex items-center gap-2 rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-primary shadow-lg transition-transform hover:scale-[1.02]"
+                      className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-primary shadow-lg transition-transform hover:scale-[1.02]"
                     >
                       Explore markets <ArrowRight className="h-4 w-4" />
                     </Link>
                     <Link
                       to="/live"
-                      className="inline-flex items-center gap-2 rounded-lg border border-white/25 bg-white/10 px-5 py-2.5 text-sm font-semibold text-white backdrop-blur hover:bg-white/15"
+                      className="inline-flex items-center gap-2 rounded-lg border border-white/25 bg-white/10 px-4 py-2 text-sm font-semibold text-white backdrop-blur hover:bg-white/15"
                     >
                       <Radio className="h-4 w-4" />
                       Watch live
                     </Link>
                   </div>
-                  <div className="mt-8 grid max-w-xl grid-cols-2 gap-4 border-t border-white/15 pt-6 sm:grid-cols-4">
+                  <div className="mt-5 grid max-w-2xl grid-cols-2 gap-3 border-t border-white/15 pt-4 sm:grid-cols-4">
                     {activityItems.map((item) => (
-                      <div key={item.label}>
-                        <div className="font-display text-xl font-bold">{item.value}</div>
-                        <div className="text-[11px] uppercase tracking-wider text-white/70">
+                      <div
+                        key={item.label}
+                        className="rounded-xl border border-white/10 bg-white/5 p-3"
+                      >
+                        <div className="font-display text-lg font-bold">{item.value}</div>
+                        <div className="text-[10px] uppercase tracking-wider text-white/70">
                           {item.label}
                         </div>
                       </div>
@@ -472,21 +503,23 @@ function Index() {
                   </div>
                 </div>
 
-                <div className="grid gap-3">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
                   {accountItems.map((item) => (
                     <div
                       key={item.label}
-                      className="rounded-2xl border border-white/15 bg-white/10 p-4 text-primary-foreground backdrop-blur"
+                      className="rounded-2xl border border-white/15 bg-white/10 p-3.5 text-primary-foreground backdrop-blur"
                     >
-                      <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center justify-between gap-3">
                         <div>
-                          <div className="text-[11px] uppercase tracking-[0.26em] text-white/70">
+                          <div className="text-[10px] uppercase tracking-[0.24em] text-white/70">
                             {item.label}
                           </div>
-                          <div className="mt-1 font-display text-lg font-bold">{item.value}</div>
+                          <div className="mt-1 font-display text-base font-bold sm:text-lg">
+                            {item.value}
+                          </div>
                         </div>
-                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10">
-                          <item.icon className="h-5 w-5" />
+                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10">
+                          <item.icon className="h-4 w-4" />
                         </div>
                       </div>
                     </div>
@@ -555,8 +588,10 @@ function Index() {
                             onClick={() =>
                               addSelection({
                                 id,
+                                matchId: match.id,
                                 match: `${match.home} vs ${match.away}`,
                                 market: "Match result",
+                                selection: market,
                                 pick: value,
                                 odds: match.odds[market],
                               })
@@ -647,8 +682,10 @@ function Index() {
                               !disabled &&
                               addSelection({
                                 id,
+                                matchId: match.id,
                                 match: `${match.home} vs ${match.away}`,
                                 market: "Match result",
+                                selection: market,
                                 pick,
                                 odds,
                               })
@@ -705,6 +742,16 @@ function Index() {
                 setStake={setStake}
                 totalOdds={totalOdds}
                 payout={payout}
+                onPlaceBet={() => {
+                  placeAccumulatorBet({
+                    stake: stakeValue,
+                    selections: slip.map((selection) => ({
+                      matchId: selection.matchId,
+                      selection: selection.selection,
+                    })),
+                  });
+                  setSlip([]);
+                }}
                 onRemove={(id) =>
                   setSlip((current) => current.filter((selection) => selection.id !== id))
                 }
@@ -772,6 +819,16 @@ function Index() {
               setStake={setStake}
               totalOdds={totalOdds}
               payout={payout}
+              onPlaceBet={() => {
+                placeAccumulatorBet({
+                  stake: stakeValue,
+                  selections: slip.map((selection) => ({
+                    matchId: selection.matchId,
+                    selection: selection.selection,
+                  })),
+                });
+                setSlip([]);
+              }}
               onRemove={(id) =>
                 setSlip((current) => current.filter((selection) => selection.id !== id))
               }
@@ -811,6 +868,7 @@ function BetSlip({
   setStake,
   totalOdds,
   payout,
+  onPlaceBet,
   onRemove,
   onClear,
 }: {
@@ -819,6 +877,7 @@ function BetSlip({
   setStake: (value: string) => void;
   totalOdds: number;
   payout: number;
+  onPlaceBet: () => void;
   onRemove: (id: string) => void;
   onClear: () => void;
 }) {
@@ -929,7 +988,11 @@ function BetSlip({
               </div>
             </div>
 
-            <button className="w-full rounded-lg bg-gradient-primary py-3 text-sm font-bold text-primary-foreground shadow-elegant transition-transform hover:scale-[1.01]">
+            <button
+              type="button"
+              onClick={onPlaceBet}
+              className="w-full rounded-lg bg-gradient-primary py-3 text-sm font-bold text-primary-foreground shadow-elegant transition-transform hover:scale-[1.01]"
+            >
               Place bet
             </button>
             <p className="text-center text-[10px] text-muted-foreground">
