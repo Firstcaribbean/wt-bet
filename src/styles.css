@@ -1,0 +1,193 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-glow: var(--primary-glow);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-live: var(--live);
+  --color-live-foreground: var(--live-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+:root {
+  --radius: 0.75rem;
+
+  /* W&T Bet light theme */
+  --background: oklch(0.99 0.005 240);
+  --foreground: oklch(0.18 0.04 250);
+
+  --surface: oklch(0.975 0.008 240);
+  --surface-elevated: oklch(1 0 0);
+
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.18 0.04 250);
+
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.18 0.04 250);
+
+  --primary: oklch(0.42 0.15 255);          /* deep intelligent blue */
+  --primary-foreground: oklch(0.99 0.005 240);
+  --primary-glow: oklch(0.62 0.18 245);
+
+  --secondary: oklch(0.955 0.012 240);
+  --secondary-foreground: oklch(0.22 0.05 250);
+
+  --muted: oklch(0.96 0.008 240);
+  --muted-foreground: oklch(0.5 0.02 250);
+
+  --accent: oklch(0.72 0.14 185);           /* sophisticated teal */
+  --accent-foreground: oklch(0.15 0.03 240);
+
+  --success: oklch(0.68 0.15 155);          /* prosperous muted green */
+  --success-foreground: oklch(0.15 0.03 240);
+
+  --live: oklch(0.62 0.22 25);              /* live red-orange */
+  --live-foreground: oklch(1 0 0);
+
+  --destructive: oklch(0.6 0.22 27);
+  --destructive-foreground: oklch(0.99 0.005 240);
+
+  --border: oklch(0.9 0.012 245);
+  --input: oklch(0.92 0.012 245);
+  --ring: oklch(0.62 0.18 245);
+
+  --gradient-hero: linear-gradient(135deg, oklch(0.32 0.14 258) 0%, oklch(0.5 0.18 245) 55%, oklch(0.72 0.14 185) 100%);
+  --gradient-primary: linear-gradient(135deg, var(--primary) 0%, var(--primary-glow) 100%);
+  --gradient-accent: linear-gradient(135deg, var(--accent) 0%, var(--success) 100%);
+  --shadow-elegant: 0 10px 30px -12px color-mix(in oklab, var(--primary) 30%, transparent);
+  --shadow-glow: 0 0 40px -8px color-mix(in oklab, var(--primary-glow) 45%, transparent);
+  --shadow-card: 0 1px 2px oklch(0.2 0.04 250 / 0.04), 0 8px 24px -12px oklch(0.2 0.04 250 / 0.08);
+}
+
+.dark {
+  --background: oklch(0.16 0.03 255);
+  --foreground: oklch(0.97 0.008 240);
+
+  --surface: oklch(0.2 0.035 255);
+  --surface-elevated: oklch(0.24 0.04 255);
+
+  --card: oklch(0.22 0.038 255);
+  --card-foreground: oklch(0.97 0.008 240);
+
+  --popover: oklch(0.22 0.038 255);
+  --popover-foreground: oklch(0.97 0.008 240);
+
+  --primary: oklch(0.7 0.17 245);
+  --primary-foreground: oklch(0.15 0.03 255);
+  --primary-glow: oklch(0.78 0.15 235);
+
+  --secondary: oklch(0.28 0.04 255);
+  --secondary-foreground: oklch(0.97 0.008 240);
+
+  --muted: oklch(0.26 0.035 255);
+  --muted-foreground: oklch(0.72 0.02 250);
+
+  --accent: oklch(0.78 0.14 185);
+  --accent-foreground: oklch(0.15 0.03 255);
+
+  --success: oklch(0.75 0.16 155);
+  --success-foreground: oklch(0.15 0.03 255);
+
+  --live: oklch(0.68 0.22 25);
+  --live-foreground: oklch(1 0 0);
+
+  --destructive: oklch(0.7 0.19 22);
+  --destructive-foreground: oklch(0.97 0.008 240);
+
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 12%);
+  --ring: oklch(0.7 0.17 245);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-background);
+    background-image:
+      radial-gradient(
+        circle at top left,
+        color-mix(in oklab, var(--primary) 12%, transparent) 0,
+        transparent 35%
+      ),
+      radial-gradient(
+        circle at top right,
+        color-mix(in oklab, var(--accent) 10%, transparent) 0,
+        transparent 28%
+      ),
+      linear-gradient(
+        180deg,
+        color-mix(in oklab, var(--background) 96%, white) 0%,
+        var(--background) 100%
+      );
+    background-attachment: fixed;
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  h1, h2, h3, h4, h5 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
+}
+
+@utility bg-gradient-hero {
+  background-image: var(--gradient-hero);
+}
+@utility bg-gradient-primary {
+  background-image: var(--gradient-primary);
+}
+@utility bg-gradient-accent {
+  background-image: var(--gradient-accent);
+}
+@utility shadow-elegant {
+  box-shadow: var(--shadow-elegant);
+}
+@utility shadow-glow {
+  box-shadow: var(--shadow-glow);
+}
+@utility shadow-card {
+  box-shadow: var(--shadow-card);
+}
+
+@utility pulse-live {
+  animation: pulse-live 1.6s ease-in-out infinite;
+}
+@keyframes pulse-live {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 color-mix(in oklab, var(--live) 60%, transparent); }
+  50% { opacity: 0.85; box-shadow: 0 0 0 6px color-mix(in oklab, var(--live) 0%, transparent); }
+}
