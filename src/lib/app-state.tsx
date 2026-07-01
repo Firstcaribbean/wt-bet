@@ -124,6 +124,17 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!hydrated) return;
+    const interval = window.setInterval(() => {
+      refresh().catch(() => {
+        // Ignore background refresh failures and keep the current snapshot.
+      });
+    }, 15000);
+
+    return () => window.clearInterval(interval);
+  }, [hydrated, refresh]);
+
+  useEffect(() => {
+    if (!hydrated) return;
     window.localStorage.setItem("wt-bet-theme", theme);
     document.documentElement.classList.toggle("dark", theme === "dark");
   }, [hydrated, theme]);

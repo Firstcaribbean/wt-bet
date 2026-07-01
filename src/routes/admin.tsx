@@ -77,6 +77,11 @@ function AdminShell() {
     [bets, matches.length, users.length, withdrawals.length],
   );
 
+  const simulatedMatches = useMemo(
+    () => matches.filter((match) => match.source === "local" && match.simulation),
+    [matches],
+  );
+
   const createMatch = async () => {
     await createLocalMatch({
       sport,
@@ -197,6 +202,62 @@ function AdminShell() {
               >
                 Add match
               </button>
+            </div>
+
+            <div className="mt-6 rounded-2xl border border-border bg-surface p-4">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="font-display text-base font-bold">Simulation lab</h3>
+                <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                  local matches
+                </span>
+              </div>
+              <div className="mt-4 space-y-3">
+                {simulatedMatches.length > 0 ? (
+                  simulatedMatches.map((match) => {
+                    const simulation = match.simulation!;
+                    const progress = Math.min(
+                      100,
+                      Math.max(
+                        0,
+                        ((Date.now() - new Date(simulation.startedAt).getTime()) /
+                          (simulation.durationMinutes * 60000)) *
+                          100,
+                      ),
+                    );
+
+                    return (
+                      <div key={match.id} className="rounded-xl border border-border bg-card p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <div className="font-semibold">
+                              {match.home} vs {match.away}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {match.minute} · {match.score}
+                            </div>
+                          </div>
+                          <span className="rounded-full bg-live/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-live">
+                            {simulation.status}
+                          </span>
+                        </div>
+                        <div className="mt-3 h-2 overflow-hidden rounded-full bg-border">
+                          <div
+                            className="h-full rounded-full bg-gradient-primary transition-all"
+                            style={{ width: `${progress}%` }}
+                          />
+                        </div>
+                        <div className="mt-2 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                          Progress {progress.toFixed(0)}%
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Add a local match and it will appear here with a live simulation bar.
+                  </p>
+                )}
+              </div>
             </div>
           </section>
 

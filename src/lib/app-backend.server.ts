@@ -9,6 +9,7 @@ import {
   type AppState,
   type AppStateBootstrap,
   type Bet,
+  type FootballFeedItem,
   type Match,
   type Notification,
   type User,
@@ -110,6 +111,197 @@ function appendNotification(state: AppState, notification: Notification) {
   state.notifications = [notification, ...state.notifications];
 }
 
+function createSimulationSeed() {
+  return randomBytes(4).readUInt32BE(0);
+}
+
+function getSimulatedScore(seed: number, phase: "scheduled" | "running" | "settled") {
+  if (phase === "scheduled") {
+    return { minute: "Kickoff soon", score: "0-0" };
+  }
+
+  if (phase === "running") {
+    const bucket = seed % 3;
+    if (bucket === 0) return { minute: "38'", score: "1-0" };
+    if (bucket === 1) return { minute: "54'", score: "1-1" };
+    return { minute: "63'", score: "0-1" };
+  }
+
+  const bucket = seed % 3;
+  if (bucket === 0) return { minute: "FT", score: "2-1", result: "home" as const };
+  if (bucket === 1) return { minute: "FT", score: "1-1", result: "draw" as const };
+  return { minute: "FT", score: "1-2", result: "away" as const };
+}
+
+function advanceLocalSimulation(state: AppState) {
+  const now = Date.now();
+  let changed = false;
+  const settledMatches: Array<{ matchId: string; result: "home" | "draw" | "away" }> = [];
+
+  const matches = state.matches.map((match) => {
+    if (match.source !== "local" || !match.simulation) return match;
+
+    const startedAt = new Date(match.simulation.startedAt).getTime();
+    const duration = match.simulation.durationMinutes * 60_000;
+    const elapsed = now - startedAt;
+
+    if (elapsed < 120_000) {
+      const nextMatch = {
+        ...match,
+        status: "upcoming" as const,
+        live: false,
+        minute: "Kickoff soon",
+        score: "0-0",
+        simulation: { ...match.simulation, status: "scheduled" as const },
+      };
+      if (
+        nextMatch.status !== match.status ||
+        nextMatch.live !== match.live ||
+        nextMatch.minute !== match.minute ||
+        nextMatch.score !== match.score ||
+        nextMatch.simulation.status !== match.simulation.status
+      ) {
+        changed = true;
+      }
+      return nextMatch;
+    }
+
+    if (elapsed < duration) {
+      const bucket = match.simulation.seed % 3;
+      const liveMinute = `${Math.max(1, Math.floor((elapsed / duration) * 90))}'`;
+      const score =
+        bucket === 0 ? "1-0" : bucket === 1 ? "1-1" : elapsed > duration * 0.55 ? "0-1" : "0-0";
+      const nextMatch = {
+        ...match,
+        status: "live" as const,
+        live: true,
+        minute: liveMinute,
+        score,
+        simulation: { ...match.simulation, status: "running" as const },
+      };
+      if (
+        nextMatch.status !== match.status ||
+        nextMatch.live !== match.live ||
+        nextMatch.minute !== match.minute ||
+        nextMatch.score !== match.score ||
+        nextMatch.simulation.status !== match.simulation.status
+      ) {
+        changed = true;
+      }
+      return nextMatch;
+    }
+
+    const outcome = getSimulatedScore(match.simulation.seed, "settled");
+    const nextMatch = {
+      ...match,
+      status: "settled" as const,
+      live: false,
+      minute: outcome.minute,
+      score: outcome.score,
+      settledResult: outcome.result,
+      simulation: { ...match.simulation, status: "settled" as const },
+    };
+    changed = true;
+    settledMatches.push({ matchId: match.id, result: outcome.result });
+    return nextMatch;
+  });
+
+  if (!changed && settledMatches.length === 0) {
+    return state;
+  }
+
+  const nextState: AppState = {
+    ...state,
+    matches,
+  };
+
+  for (const settled of settledMatches) {
+    settleBets(nextState, settled.matchId, settled.result);
+    appendNotification(nextState, {
+      id: createId("notification"),
+      title: "Simulation settled",
+      message: `${nextState.matches.find((item) => item.id === settled.matchId)?.home} vs ${
+        nextState.matches.find((item) => item.id === settled.matchId)?.away
+      } has finished.`,
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  return nextState;
+}
+
+function normalizeFootballFeedItem(raw: unknown, fallbackIndex: number): FootballFeedItem {
+  const data = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const participants = Array.isArray(data.participants) ? data.participants : [];
+  const firstParticipant = participants[0] as Record<string, unknown> | undefined;
+  const secondParticipant = participants[1] as Record<string, unknown> | undefined;
+  const leagueData =
+    data.league && typeof data.league === "object" ? (data.league as Record<string, unknown>) : {};
+  const competition =
+    data.competition && typeof data.competition === "object"
+      ? (data.competition as Record<string, unknown>)
+      : {};
+  const state =
+    data.state && typeof data.state === "object" ? (data.state as Record<string, unknown>) : {};
+  const time =
+    data.time && typeof data.time === "object" ? (data.time as Record<string, unknown>) : {};
+  const startingAt =
+    data.starting_at && typeof data.starting_at === "object"
+      ? (data.starting_at as Record<string, unknown>)
+      : {};
+  const scores =
+    data.scores && typeof data.scores === "object" ? (data.scores as Record<string, unknown>) : {};
+  const home =
+    firstParticipant?.name ??
+    (data.home_team && typeof data.home_team === "object"
+      ? (data.home_team as Record<string, unknown>).name
+      : undefined) ??
+    (data.localteam && typeof data.localteam === "object"
+      ? (data.localteam as Record<string, unknown>).name
+      : undefined) ??
+    `Home ${fallbackIndex + 1}`;
+  const away =
+    secondParticipant?.name ??
+    (data.away_team && typeof data.away_team === "object"
+      ? (data.away_team as Record<string, unknown>).name
+      : undefined) ??
+    (data.visitorteam && typeof data.visitorteam === "object"
+      ? (data.visitorteam as Record<string, unknown>).name
+      : undefined) ??
+    `Away ${fallbackIndex + 1}`;
+  const league =
+    (leagueData.name as string | undefined) ??
+    (data.league_name as string | undefined) ??
+    (competition.name as string | undefined) ??
+    (data.name as string | undefined) ??
+    "Football";
+  const status =
+    (state.name as string | undefined) ??
+    (data.status as string | undefined) ??
+    (time.status as string | undefined) ??
+    "Live";
+  const minuteValue = data.minute ?? time.minute ?? data.played_minutes;
+  const score =
+    typeof data.result_info === "string"
+      ? data.result_info
+      : `${scores.home_score ?? data.home_score ?? 0}-${scores.away_score ?? data.away_score ?? 0}`;
+
+  return {
+    id: String(data.id ?? fallbackIndex + 1),
+    league,
+    home,
+    away,
+    status,
+    minute: minuteValue != null ? `${minuteValue}'` : status,
+    score,
+    kickoff:
+      (startingAt.date_time as string | undefined) ??
+      (data.starting_at as string | undefined) ??
+      (time.starting_at as string | undefined),
+    source: "football-api",
+  };
+}
+
 function settleBets(state: AppState, matchId: string, result: "home" | "draw" | "away") {
   state.bets = state.bets.map((bet) => {
     if (bet.status !== "open") return bet;
@@ -160,7 +352,11 @@ function settleBets(state: AppState, matchId: string, result: "home" | "draw" | 
 }
 
 async function getBootstrapState(): Promise<SessionSnapshot> {
-  const state = await readState();
+  const initialState = await readState();
+  const state = advanceLocalSimulation(initialState);
+  if (state !== initialState) {
+    await writeState(state);
+  }
   const session = await getSession(SESSION_CONFIG);
   const currentUserId = session.data.userId ?? null;
   return { ...state, currentUserId };
@@ -168,6 +364,84 @@ async function getBootstrapState(): Promise<SessionSnapshot> {
 
 export const fetchBootstrapState = createServerFn({ method: "GET" }).handler(async () => {
   return getBootstrapState();
+});
+
+export const fetchFootballFeedAction = createServerFn({ method: "GET" }).handler(async () => {
+  const token = process.env.SPORTMONKS_API_TOKEN;
+  const state = await readState();
+
+  if (!token) {
+    return {
+      provider: "fallback" as const,
+      items: state.matches
+        .filter((match) => match.sport.toLowerCase() === "football")
+        .slice(0, 6)
+        .map((match) => ({
+          id: match.id,
+          league: match.league,
+          home: match.home,
+          away: match.away,
+          status:
+            match.status === "settled"
+              ? "Finished"
+              : match.status === "live"
+                ? "Live"
+                : "Scheduled",
+          minute: match.minute,
+          score: match.score,
+          kickoff: undefined,
+          source: "local" as const,
+        })),
+      updatedAt: new Date().toISOString(),
+      note: "Set SPORTMONKS_API_TOKEN to show real football data.",
+    };
+  }
+
+  const url = new URL("https://api.sportmonks.com/api/v3/football/livescores");
+  url.searchParams.set("api_token", token);
+  url.searchParams.set("include", "participants;league;scores");
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    const fallback = state.matches
+      .filter((match) => match.sport.toLowerCase() === "football")
+      .slice(0, 6)
+      .map((match) => ({
+        id: match.id,
+        league: match.league,
+        home: match.home,
+        away: match.away,
+        status:
+          match.status === "settled" ? "Finished" : match.status === "live" ? "Live" : "Scheduled",
+        minute: match.minute,
+        score: match.score,
+        kickoff: undefined,
+        source: "local" as const,
+      }));
+
+    return {
+      provider: "fallback" as const,
+      items: fallback,
+      updatedAt: new Date().toISOString(),
+      note: "SportMonks is unavailable right now, so the app is showing local football data.",
+    };
+  }
+
+  const payload = (await response.json()) as { data?: unknown[] };
+  const items = (payload.data ?? [])
+    .slice(0, 8)
+    .map((item, index) => normalizeFootballFeedItem(item, index));
+
+  return {
+    provider: "sportmonks" as const,
+    items,
+    updatedAt: new Date().toISOString(),
+  };
 });
 
 export const signUpAction = createServerFn({ method: "POST" })
@@ -493,6 +767,13 @@ export const createLocalMatchAction = createServerFn({ method: "POST" })
       awayOdds: data.awayOdds,
       featured: data.featured,
       live: data.live,
+      source: "local",
+      simulation: {
+        status: "scheduled",
+        startedAt: new Date().toISOString(),
+        durationMinutes: 12,
+        seed: createSimulationSeed(),
+      },
     };
 
     await writeState({ ...state, matches: [match, ...state.matches] });

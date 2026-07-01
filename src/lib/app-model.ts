@@ -29,6 +29,13 @@ export type Match = {
   awayOdds: number;
   featured: boolean;
   live: boolean;
+  source?: "local" | "football-api";
+  simulation?: {
+    status: "scheduled" | "running" | "settled";
+    startedAt: string;
+    durationMinutes: number;
+    seed: number;
+  };
   settledResult?: "home" | "draw" | "away";
 };
 
@@ -84,6 +91,18 @@ export type AppSnapshot = AppState & {
 export type AppStateBootstrap = {
   state: AppState;
   currentUserId: string | null;
+};
+
+export type FootballFeedItem = {
+  id: string;
+  league: string;
+  home: string;
+  away: string;
+  status: string;
+  minute: string;
+  score: string;
+  kickoff?: string;
+  source: "football-api" | "local";
 };
 
 export function createId(prefix: string) {
