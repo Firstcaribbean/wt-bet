@@ -230,75 +230,67 @@ function advanceLocalSimulation(state: AppState) {
   return nextState;
 }
 
-function normalizeFootballFeedItem(raw: unknown, fallbackIndex: number): FootballFeedItem {
+function normalizeFootballDataItem(raw: unknown, fallbackIndex: number): FootballFeedItem {
   const data = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
-  const participants = Array.isArray(data.participants) ? data.participants : [];
-  const firstParticipant = participants[0] as Record<string, unknown> | undefined;
-  const secondParticipant = participants[1] as Record<string, unknown> | undefined;
-  const leagueData =
-    data.league && typeof data.league === "object" ? (data.league as Record<string, unknown>) : {};
   const competition =
     data.competition && typeof data.competition === "object"
       ? (data.competition as Record<string, unknown>)
       : {};
-  const state =
-    data.state && typeof data.state === "object" ? (data.state as Record<string, unknown>) : {};
-  const time =
-    data.time && typeof data.time === "object" ? (data.time as Record<string, unknown>) : {};
-  const startingAt =
-    data.starting_at && typeof data.starting_at === "object"
-      ? (data.starting_at as Record<string, unknown>)
+  const homeTeam =
+    data.homeTeam && typeof data.homeTeam === "object"
+      ? (data.homeTeam as Record<string, unknown>)
       : {};
-  const scores =
-    data.scores && typeof data.scores === "object" ? (data.scores as Record<string, unknown>) : {};
+  const awayTeam =
+    data.awayTeam && typeof data.awayTeam === "object"
+      ? (data.awayTeam as Record<string, unknown>)
+      : {};
+  const score =
+    data.score && typeof data.score === "object" ? (data.score as Record<string, unknown>) : {};
+  const fullTime =
+    score.fullTime && typeof score.fullTime === "object"
+      ? (score.fullTime as Record<string, unknown>)
+      : {};
+  const current =
+    score.current && typeof score.current === "object"
+      ? (score.current as Record<string, unknown>)
+      : {};
+  const utcDate = typeof data.utcDate === "string" ? data.utcDate : undefined;
+  const statusValue = typeof data.status === "string" ? data.status : "SCHEDULED";
   const home =
-    firstParticipant?.name ??
-    (data.home_team && typeof data.home_team === "object"
-      ? (data.home_team as Record<string, unknown>).name
-      : undefined) ??
-    (data.localteam && typeof data.localteam === "object"
-      ? (data.localteam as Record<string, unknown>).name
-      : undefined) ??
+    (homeTeam.shortName as string | undefined) ??
+    (homeTeam.name as string | undefined) ??
     `Home ${fallbackIndex + 1}`;
   const away =
-    secondParticipant?.name ??
-    (data.away_team && typeof data.away_team === "object"
-      ? (data.away_team as Record<string, unknown>).name
-      : undefined) ??
-    (data.visitorteam && typeof data.visitorteam === "object"
-      ? (data.visitorteam as Record<string, unknown>).name
-      : undefined) ??
+    (awayTeam.shortName as string | undefined) ??
+    (awayTeam.name as string | undefined) ??
     `Away ${fallbackIndex + 1}`;
   const league =
-    (leagueData.name as string | undefined) ??
-    (data.league_name as string | undefined) ??
     (competition.name as string | undefined) ??
-    (data.name as string | undefined) ??
+    (competition.code as string | undefined) ??
     "Football";
-  const status =
-    (state.name as string | undefined) ??
-    (data.status as string | undefined) ??
-    (time.status as string | undefined) ??
-    "Live";
-  const minuteValue = data.minute ?? time.minute ?? data.played_minutes;
-  const score =
-    typeof data.result_info === "string"
-      ? data.result_info
-      : `${scores.home_score ?? data.home_score ?? 0}-${scores.away_score ?? data.away_score ?? 0}`;
+  const scoreValue =
+    typeof current.home === "number" || typeof current.away === "number"
+      ? `${current.home ?? fullTime.home ?? 0}-${current.away ?? fullTime.away ?? 0}`
+      : `${fullTime.home ?? 0}-${fullTime.away ?? 0}`;
+  const minute =
+    statusValue === "LIVE" || statusValue === "IN_PLAY" || statusValue === "PAUSED"
+      ? "Live"
+      : statusValue === "FINISHED"
+        ? "FT"
+        : utcDate
+          ? new Date(utcDate).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+          : "Scheduled";
 
   return {
     id: String(data.id ?? fallbackIndex + 1),
     league,
     home,
     away,
-    status,
-    minute: minuteValue != null ? `${minuteValue}'` : status,
-    score,
-    kickoff:
-      (startingAt.date_time as string | undefined) ??
-      (data.starting_at as string | undefined) ??
-      (time.starting_at as string | undefined),
-    source: "football-api",
+    status: statusValue,
+    minute,
+    score: scoreValue,
+    kickoff: utcDate,
+    source: "football-data",
   };
 }
 
@@ -367,7 +359,7 @@ export const fetchBootstrapState = createServerFn({ method: "GET" }).handler(asy
 });
 
 export const fetchFootballFeedAction = createServerFn({ method: "GET" }).handler(async () => {
-  const token = process.env.SPORTMONKS_API_TOKEN;
+  const token = process.env.FOOTBALL_DATA_API_TOKEN;
   const state = await readState();
 
   if (!token) {
@@ -393,17 +385,21 @@ export const fetchFootballFeedAction = createServerFn({ method: "GET" }).handler
           source: "local" as const,
         })),
       updatedAt: new Date().toISOString(),
-      note: "Set SPORTMONKS_API_TOKEN to show real football data.",
+      note: "Set FOOTBALL_DATA_API_TOKEN to show free real football data from football-data.org.",
     };
   }
 
-  const url = new URL("https://api.sportmonks.com/api/v3/football/livescores");
-  url.searchParams.set("api_token", token);
-  url.searchParams.set("include", "participants;league;scores");
+  const url = new URL("https://api.football-data.org/v4/matches");
+  const today = new Date();
+  const from = new Date(today.getTime() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const to = new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  url.searchParams.set("dateFrom", from);
+  url.searchParams.set("dateTo", to);
 
   const response = await fetch(url.toString(), {
     headers: {
       Accept: "application/json",
+      "X-Auth-Token": token,
     },
   });
 
@@ -428,17 +424,17 @@ export const fetchFootballFeedAction = createServerFn({ method: "GET" }).handler
       provider: "fallback" as const,
       items: fallback,
       updatedAt: new Date().toISOString(),
-      note: "SportMonks is unavailable right now, so the app is showing local football data.",
+      note: "football-data.org is unavailable right now, so the app is showing local football data.",
     };
   }
 
-  const payload = (await response.json()) as { data?: unknown[] };
-  const items = (payload.data ?? [])
+  const payload = (await response.json()) as { matches?: unknown[] };
+  const items = (payload.matches ?? [])
     .slice(0, 8)
-    .map((item, index) => normalizeFootballFeedItem(item, index));
+    .map((item, index) => normalizeFootballDataItem(item, index));
 
   return {
-    provider: "sportmonks" as const,
+    provider: "football-data" as const,
     items,
     updatedAt: new Date().toISOString(),
   };

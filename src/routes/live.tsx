@@ -13,7 +13,7 @@ export const Route = createFileRoute("/live")({
 function LivePage() {
   const { matches } = useAppStore();
   const feed = Route.useLoaderData() as {
-    provider: "sportmonks" | "fallback";
+    provider: "football-data" | "fallback";
     items: FootballFeedItem[];
     updatedAt: string;
     note?: string;
@@ -49,12 +49,12 @@ function LivePage() {
                   <h2 className="font-display text-lg font-bold">Real football feed</h2>
                 </div>
                 <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-primary">
-                  {feed.provider === "sportmonks" ? "SportMonks" : "Local fallback"}
+                  {feed.provider === "football-data" ? "football-data.org" : "Local fallback"}
                 </span>
               </div>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">
                 {feed.note ??
-                  "Live football data is coming from the provider-backed API through the backend, so the token stays private."}
+                  "Live football data is coming from a free provider-backed API through the backend, so the token stays private."}
               </p>
               <p className="mt-2 text-xs uppercase tracking-[0.22em] text-muted-foreground">
                 Updated {new Date(feed.updatedAt).toLocaleTimeString()}
@@ -80,11 +80,11 @@ function LivePage() {
                         {item.home} <span className="text-muted-foreground">vs</span> {item.away}
                       </h2>
                       <p className="text-sm text-muted-foreground">
-                        Score {item.score} · {item.status}
+                        Score {item.score} - {item.status}
                       </p>
                     </div>
                     <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
-                      {item.source === "football-api" ? "Live data" : "Local"}
+                      {item.source === "football-data" ? "Live data" : "Local"}
                     </span>
                   </div>
                   {item.kickoff ? (
@@ -97,8 +97,8 @@ function LivePage() {
             ) : (
               <div className="rounded-2xl border border-border bg-card p-5 shadow-card">
                 <p className="text-sm text-muted-foreground">
-                  No football data came back yet. Add the SportMonks token in Vercel env vars and
-                  refresh.
+                  No football data came back yet. Add the free football-data.org token in Vercel
+                  env vars and refresh.
                 </p>
               </div>
             )}
@@ -143,7 +143,7 @@ function LivePage() {
                             {match.home} vs {match.away}
                           </h3>
                           <p className="text-sm text-muted-foreground">
-                            {match.league} · {match.status}
+                            {match.league} - {match.status}
                           </p>
                         </div>
                         <span className="rounded-full bg-live/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-live">
@@ -186,8 +186,9 @@ function LivePage() {
                 <h2 className="font-display text-lg font-bold">Next step</h2>
               </div>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Once you add the SportMonks token in Vercel, this page will show real live football
-                games while the admin-created match simulation keeps running beside it.
+                Once you add the free football-data.org token in Vercel, this page will show real
+                live football games while the admin-created match simulation keeps running beside
+                it.
               </p>
             </div>
           </aside>

@@ -29,7 +29,7 @@ export type Match = {
   awayOdds: number;
   featured: boolean;
   live: boolean;
-  source?: "local" | "football-api";
+  source?: "local" | "football-data";
   simulation?: {
     status: "scheduled" | "running" | "settled";
     startedAt: string;
@@ -102,7 +102,7 @@ export type FootballFeedItem = {
   minute: string;
   score: string;
   kickoff?: string;
-  source: "football-api" | "local";
+  source: "football-data" | "local";
 };
 
 export function createId(prefix: string) {
