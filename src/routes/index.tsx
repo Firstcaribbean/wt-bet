@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, type LucideIcon } from "react";
 import {
   Activity,
@@ -240,6 +240,9 @@ function Index() {
   const [stake, setStake] = useState<string>("10");
   const [slipOpen, setSlipOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [selectedSport, setSelectedSport] = useState(sports[0].name);
+  const [selectedFilter, setSelectedFilter] = useState("Live now");
+  const [selectedFeed, setSelectedFeed] = useState("Popular");
 
   useEffect(() => {
     const storedTheme = window.localStorage.getItem("wt-bet-theme");
@@ -284,21 +287,26 @@ function Index() {
           </a>
 
           <nav className="hidden items-center gap-1 md:flex">
-            {["Sports", "Live", "In Play", "Promotions", "Help"].map((item, index) => (
-              <a
-                key={item}
-                href="#"
+            {[
+              { label: "Sports", to: "/sports" },
+              { label: "Live", to: "/live" },
+              { label: "Promotions", to: "/promotions" },
+              { label: "Help", to: "/help" },
+            ].map((item, index) => (
+              <Link
+                key={item.label}
+                to={item.to}
                 className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
                   index === 0
                     ? "bg-secondary text-secondary-foreground"
                     : "text-muted-foreground hover:bg-secondary hover:text-foreground"
                 }`}
               >
-                {item}
+                {item.label}
                 {index === 1 ? (
                   <span className="ml-1.5 inline-flex h-1.5 w-1.5 rounded-full bg-live pulse-live" />
                 ) : null}
-              </a>
+              </Link>
             ))}
           </nav>
 
@@ -323,9 +331,12 @@ function Index() {
                 <span className="text-sm font-semibold tabular-nums">$1,248.50</span>
               </div>
             </div>
-            <button className="hidden rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium hover:bg-secondary sm:block">
+            <Link
+              to="/account"
+              className="hidden rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium hover:bg-secondary sm:block"
+            >
               Sign in
-            </button>
+            </Link>
             <button
               type="button"
               onClick={() => setIsDarkMode((value) => !value)}
@@ -335,9 +346,12 @@ function Index() {
               {isDarkMode ? <SunMedium className="h-4 w-4" /> : <MoonStar className="h-4 w-4" />}
               <span className="hidden sm:inline">{isDarkMode ? "Light" : "Dark"}</span>
             </button>
-            <button className="rounded-lg bg-gradient-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-elegant transition-transform hover:scale-[1.02]">
+            <Link
+              to="/account"
+              className="rounded-lg bg-gradient-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-elegant transition-transform hover:scale-[1.02]"
+            >
               Join now
-            </button>
+            </Link>
           </div>
         </div>
       </header>
@@ -352,11 +366,13 @@ function Index() {
                   Sports
                 </h3>
                 <ul className="space-y-0.5">
-                  {sports.map((sport, index) => (
+                  {sports.map((sport) => (
                     <li key={sport.name}>
                       <button
+                        type="button"
+                        onClick={() => setSelectedSport(sport.name)}
                         className={`flex w-full items-center justify-between rounded-md px-2.5 py-2 text-sm transition-colors ${
-                          index === 0
+                          selectedSport === sport.name
                             ? "bg-primary/10 text-primary"
                             : "text-foreground hover:bg-secondary"
                         }`}
@@ -389,11 +405,13 @@ function Index() {
                   <span className="text-sm font-semibold">Quick filters</span>
                 </div>
                 <div className="space-y-2">
-                  {["Live now", "Today", "Favorites", "High odds"].map((filter, index) => (
+                  {["Live now", "Today", "Favorites", "High odds"].map((filter) => (
                     <button
                       key={filter}
+                      type="button"
+                      onClick={() => setSelectedFilter(filter)}
                       className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors ${
-                        index === 0
+                        selectedFilter === filter
                           ? "bg-secondary text-secondary-foreground"
                           : "bg-surface text-muted-foreground hover:text-foreground"
                       }`}
@@ -424,14 +442,23 @@ function Index() {
                     Live odds, advanced markets, and account flows are presented in a clean layout
                     so bettors can move quickly without losing context.
                   </p>
+                  <p className="mt-3 text-xs uppercase tracking-[0.28em] text-white/65">
+                    Browsing {selectedSport} · {selectedFilter.toLowerCase()}
+                  </p>
                   <div className="mt-6 flex flex-wrap gap-3">
-                    <button className="inline-flex items-center gap-2 rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-primary shadow-lg transition-transform hover:scale-[1.02]">
+                    <Link
+                      to="/sports"
+                      className="inline-flex items-center gap-2 rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-primary shadow-lg transition-transform hover:scale-[1.02]"
+                    >
                       Explore markets <ArrowRight className="h-4 w-4" />
-                    </button>
-                    <button className="inline-flex items-center gap-2 rounded-lg border border-white/25 bg-white/10 px-5 py-2.5 text-sm font-semibold text-white backdrop-blur hover:bg-white/15">
+                    </Link>
+                    <Link
+                      to="/live"
+                      className="inline-flex items-center gap-2 rounded-lg border border-white/25 bg-white/10 px-5 py-2.5 text-sm font-semibold text-white backdrop-blur hover:bg-white/15"
+                    >
                       <Radio className="h-4 w-4" />
                       Watch live
-                    </button>
+                    </Link>
                   </div>
                   <div className="mt-8 grid max-w-xl grid-cols-2 gap-4 border-t border-white/15 pt-6 sm:grid-cols-4">
                     {activityItems.map((item) => (
@@ -479,12 +506,12 @@ function Index() {
                   </div>
                   <h2 className="font-display text-xl font-bold">In-play matches</h2>
                 </div>
-                <a
-                  href="#"
+                <Link
+                  to="/live"
                   className="flex items-center gap-1 text-sm font-medium text-primary hover:underline"
                 >
                   View all <ChevronRight className="h-4 w-4" />
-                </a>
+                </Link>
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
@@ -562,11 +589,13 @@ function Index() {
                   <h2 className="font-display text-xl font-bold">Featured events</h2>
                 </div>
                 <div className="flex gap-1 rounded-lg border border-border bg-surface p-0.5">
-                  {["Popular", "Today", "Tomorrow", "Week"].map((tab, index) => (
+                  {["Popular", "Today", "Tomorrow", "Week"].map((tab) => (
                     <button
                       key={tab}
+                      type="button"
+                      onClick={() => setSelectedFeed(tab)}
                       className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
-                        index === 0
+                        selectedFeed === tab
                           ? "bg-card text-foreground shadow-sm"
                           : "text-muted-foreground hover:text-foreground"
                       }`}
@@ -612,6 +641,7 @@ function Index() {
                         return (
                           <button
                             key={market}
+                            type="button"
                             disabled={disabled}
                             onClick={() =>
                               !disabled &&
@@ -758,15 +788,15 @@ function Index() {
             18+ Play responsibly. Gambling can be addictive.
           </div>
           <div className="flex flex-wrap items-center justify-center gap-4">
-            <a href="#" className="hover:text-foreground">
+            <Link to="/help" className="hover:text-foreground">
               Terms
-            </a>
-            <a href="#" className="hover:text-foreground">
+            </Link>
+            <Link to="/help" className="hover:text-foreground">
               Privacy
-            </a>
-            <a href="#" className="hover:text-foreground">
+            </Link>
+            <Link to="/help" className="hover:text-foreground">
               Responsible Gambling
-            </a>
+            </Link>
             <span>Copyright 2026 W&amp;T Bet</span>
           </div>
         </div>
