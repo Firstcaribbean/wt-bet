@@ -400,6 +400,16 @@ function AdminShell() {
                           ) : null}
                         </div>
                       </div>
+                      {user.kycSubmission ? (
+                        <div className="mt-3 rounded-lg border border-border bg-card p-3 text-xs leading-5 text-muted-foreground">
+                          <div className="font-semibold text-foreground">Submission</div>
+                          <div>{user.kycSubmission.fullName}</div>
+                          <div>{user.kycSubmission.documentType}</div>
+                          <div>{user.kycSubmission.documentNumber}</div>
+                          <div>{user.kycSubmission.address}</div>
+                          {user.kycSubmission.notes ? <div>{user.kycSubmission.notes}</div> : null}
+                        </div>
+                      ) : null}
                     </div>
                   ))}
                 </div>

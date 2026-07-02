@@ -27,8 +27,8 @@ import {
   signInAction,
   signOutAction,
   signUpAction,
+  submitKycAction,
   updateMatchAction,
-  verifyKycAction,
 } from "./app-backend.server";
 import { getFirebaseAuth, isFirebaseConfigured } from "./firebase";
 import {
@@ -73,6 +73,14 @@ type StoreShape = {
   signUp: (input: { name: string; email: string; password: string }) => Promise<string>;
   signIn: (input: { email: string; password: string }) => Promise<string>;
   signOut: () => Promise<void>;
+  submitKyc: (input: {
+    fullName: string;
+    country: string;
+    address: string;
+    documentType: string;
+    documentNumber: string;
+    notes?: string;
+  }) => Promise<void>;
   placeBet: (input: {
     matchId: string;
     selection: "home" | "draw" | "away";
@@ -271,8 +279,22 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         await refresh();
         return result.withdrawalId;
       },
+      submitKyc: async (input) => {
+        await submitKycAction({ data: input });
+        await refresh();
+      },
       verifyKyc: async () => {
-        await verifyKycAction();
+        if (!currentUser) return;
+        await submitKycAction({
+          data: {
+            fullName: currentUser.name,
+            country: "Unknown",
+            address: "Not provided",
+            documentType: "Manual review",
+            documentNumber: currentUser.id,
+            notes: "Submitted from quick verify action.",
+          },
+        });
         await refresh();
       },
       createLocalMatch: async (input) => {

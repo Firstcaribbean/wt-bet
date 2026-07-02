@@ -10,6 +10,7 @@ import {
   type AppStateBootstrap,
   type Bet,
   type FootballFeedItem,
+  type KycSubmission,
   type Match,
   type Notification,
   type User,
@@ -467,6 +468,7 @@ export const signUpAction = createServerFn({ method: "POST" })
       role: "user",
       balance: 1000,
       kycStatus: "unverified",
+      kycSubmission: undefined,
       createdAt: new Date().toISOString(),
     };
 
@@ -716,7 +718,20 @@ export const verifyKycAction = createServerFn({ method: "POST" }).handler(async 
   const nextState: AppState = {
     ...state,
     users: state.users.map((user) =>
-      user.id === currentUser.id ? { ...user, kycStatus: "pending" } : user,
+      user.id === currentUser.id
+        ? {
+            ...user,
+            kycStatus: "pending",
+            kycSubmission: user.kycSubmission ?? {
+              fullName: user.name,
+              country: "Unknown",
+              address: "Not provided",
+              documentType: "Manual review",
+              documentNumber: user.id,
+              submittedAt: new Date().toISOString(),
+            },
+          }
+        : user,
     ),
     notifications: [
       {
@@ -732,6 +747,56 @@ export const verifyKycAction = createServerFn({ method: "POST" }).handler(async 
   await writeState(nextState);
   return { ok: true };
 });
+
+export const submitKycAction = createServerFn({ method: "POST" })
+  .validator(
+    z.object({
+      fullName: z.string().min(1),
+      country: z.string().min(1),
+      address: z.string().min(1),
+      documentType: z.string().min(1),
+      documentNumber: z.string().min(1),
+      notes: z.string().optional(),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const state = await readState();
+    const session = await getSession(SESSION_CONFIG);
+    const currentUser = getCurrentUser(state, session.data.userId ?? null);
+
+    if (!currentUser) throw new Error("Sign in first.");
+
+    const submission: KycSubmission = {
+      fullName: data.fullName.trim(),
+      country: data.country.trim(),
+      address: data.address.trim(),
+      documentType: data.documentType.trim(),
+      documentNumber: data.documentNumber.trim(),
+      notes: data.notes?.trim() || undefined,
+      submittedAt: new Date().toISOString(),
+    };
+
+    const nextState: AppState = {
+      ...state,
+      users: state.users.map((user) =>
+        user.id === currentUser.id
+          ? { ...user, kycStatus: "pending", kycSubmission: submission }
+          : user,
+      ),
+      notifications: [
+        {
+          id: createId("notification"),
+          title: "KYC submitted",
+          message: `${currentUser.name} submitted identity details for review.`,
+          createdAt: new Date().toISOString(),
+        },
+        ...state.notifications,
+      ],
+    };
+
+    await writeState(nextState);
+    return { ok: true };
+  });
 
 export const createLocalMatchAction = createServerFn({ method: "POST" })
   .validator(
@@ -879,7 +944,13 @@ export const approveKycAction = createServerFn({ method: "POST" })
     const nextState: AppState = {
       ...state,
       users: state.users.map((user) =>
-        user.id === data.userId ? { ...user, kycStatus: "verified" } : user,
+        user.id === data.userId
+          ? {
+              ...user,
+              kycStatus: "verified",
+              kycReviewedAt: new Date().toISOString(),
+            }
+          : user,
       ),
       notifications: [
         {

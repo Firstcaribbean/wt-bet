@@ -1,5 +1,5 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { BadgeCheck, LogOut, LockKeyhole, Wallet } from "lucide-react";
 import { useAppStore } from "../lib/app-state";
 
@@ -16,7 +16,7 @@ function AccountPage() {
     signUp,
     signIn,
     signOut,
-    verifyKyc,
+    submitKyc,
     requestWithdrawal,
   } = useAppStore();
 
@@ -25,7 +25,20 @@ function AccountPage() {
   const [email, setEmail] = useState(currentUser?.email ?? "player@wtbet.local");
   const [password, setPassword] = useState("player123");
   const [withdrawAmount, setWithdrawAmount] = useState("50");
+  const [kycFullName, setKycFullName] = useState(currentUser?.name ?? "");
+  const [kycCountry, setKycCountry] = useState("Barbados");
+  const [kycAddress, setKycAddress] = useState("");
+  const [kycDocumentType, setKycDocumentType] = useState("National ID");
+  const [kycDocumentNumber, setKycDocumentNumber] = useState("");
+  const [kycNotes, setKycNotes] = useState("");
   const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (currentUser) {
+      setKycFullName(currentUser.name);
+      setEmail(currentUser.email);
+    }
+  }, [currentUser]);
 
   const myBets = useMemo(
     () => bets.filter((bet) => bet.userId === currentUser?.id).slice(0, 8),
@@ -58,6 +71,22 @@ function AccountPage() {
       setMessage("Withdrawal request created.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Unable to request withdrawal.");
+    }
+  };
+
+  const handleKycSubmit = async () => {
+    try {
+      await submitKyc({
+        fullName: kycFullName,
+        country: kycCountry,
+        address: kycAddress,
+        documentType: kycDocumentType,
+        documentNumber: kycDocumentNumber,
+        notes: kycNotes,
+      });
+      setMessage("KYC submitted for review.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to submit KYC.");
     }
   };
 
@@ -262,14 +291,77 @@ function AccountPage() {
               <p className="mt-2 text-sm text-muted-foreground">
                 Verification is required before withdrawals are approved.
               </p>
-              <button
-                type="button"
-                onClick={() => void verifyKyc()}
-                className="mt-4 inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium hover:bg-secondary"
-              >
-                <LockKeyhole className="h-4 w-4" />
-                Submit verification
-              </button>
+              <div className="mt-4 grid gap-3">
+                <label className="grid gap-2 text-sm font-medium">
+                  Full name
+                  <input
+                    value={kycFullName}
+                    onChange={(event) => setKycFullName(event.target.value)}
+                    className="h-11 rounded-lg border border-input bg-background px-3 outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
+                  />
+                </label>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <label className="grid gap-2 text-sm font-medium">
+                    Country
+                    <input
+                      value={kycCountry}
+                      onChange={(event) => setKycCountry(event.target.value)}
+                      className="h-11 rounded-lg border border-input bg-background px-3 outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
+                    />
+                  </label>
+                  <label className="grid gap-2 text-sm font-medium">
+                    Document type
+                    <input
+                      value={kycDocumentType}
+                      onChange={(event) => setKycDocumentType(event.target.value)}
+                      className="h-11 rounded-lg border border-input bg-background px-3 outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
+                    />
+                  </label>
+                </div>
+                <label className="grid gap-2 text-sm font-medium">
+                  Address
+                  <textarea
+                    value={kycAddress}
+                    onChange={(event) => setKycAddress(event.target.value)}
+                    rows={3}
+                    className="rounded-lg border border-input bg-background px-3 py-2 outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
+                  />
+                </label>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <label className="grid gap-2 text-sm font-medium">
+                    Document number
+                    <input
+                      value={kycDocumentNumber}
+                      onChange={(event) => setKycDocumentNumber(event.target.value)}
+                      className="h-11 rounded-lg border border-input bg-background px-3 outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
+                    />
+                  </label>
+                  <label className="grid gap-2 text-sm font-medium">
+                    Notes
+                    <input
+                      value={kycNotes}
+                      onChange={(event) => setKycNotes(event.target.value)}
+                      className="h-11 rounded-lg border border-input bg-background px-3 outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
+                    />
+                  </label>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void handleKycSubmit()}
+                  className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium hover:bg-secondary"
+                >
+                  <LockKeyhole className="h-4 w-4" />
+                  Submit verification
+                </button>
+                {currentUser?.kycSubmission ? (
+                  <div className="rounded-xl border border-border bg-surface p-4 text-xs leading-5 text-muted-foreground">
+                    <div className="font-semibold text-foreground">Last submission</div>
+                    <div>{currentUser.kycSubmission.documentType}</div>
+                    <div>{currentUser.kycSubmission.documentNumber}</div>
+                    <div>{currentUser.kycSubmission.address}</div>
+                  </div>
+                ) : null}
+              </div>
             </div>
 
             <div className="rounded-2xl border border-border bg-card p-5 shadow-card">

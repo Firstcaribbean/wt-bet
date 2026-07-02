@@ -4,6 +4,16 @@ export type MatchStatus = "upcoming" | "live" | "settled";
 export type BetStatus = "open" | "won" | "lost";
 export type WithdrawalStatus = "requested" | "approved" | "rejected";
 
+export type KycSubmission = {
+  fullName: string;
+  country: string;
+  address: string;
+  documentType: string;
+  documentNumber: string;
+  notes?: string;
+  submittedAt: string;
+};
+
 export type User = {
   id: string;
   name: string;
@@ -12,6 +22,8 @@ export type User = {
   role: Role;
   balance: number;
   kycStatus: KycStatus;
+  kycSubmission?: KycSubmission;
+  kycReviewedAt?: string;
   createdAt: string;
 };
 
@@ -118,6 +130,8 @@ export function createInitialState(): AppState {
     role: "admin",
     balance: 100000,
     kycStatus: "verified",
+    kycSubmission: undefined,
+    kycReviewedAt: new Date().toISOString(),
     createdAt: new Date().toISOString(),
   };
 
@@ -129,6 +143,14 @@ export function createInitialState(): AppState {
     role: "user",
     balance: 1248.5,
     kycStatus: "pending",
+    kycSubmission: {
+      fullName: "Demo Bettor",
+      country: "Barbados",
+      address: "123 Demo Street, Bridgetown",
+      documentType: "National ID",
+      documentNumber: "DB-1001",
+      submittedAt: new Date().toISOString(),
+    },
     createdAt: new Date().toISOString(),
   };
 
