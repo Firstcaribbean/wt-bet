@@ -250,6 +250,7 @@ function Index() {
   const [selectedSport, setSelectedSport] = useState(sports[0].name);
   const [selectedFilter, setSelectedFilter] = useState("Live now");
   const [selectedFeed, setSelectedFeed] = useState("Popular");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const totalOdds = useMemo(() => slip.reduce((acc, selection) => acc * selection.odds, 1), [slip]);
   const stakeValue = Number(stake) || 0;
@@ -284,6 +285,74 @@ function Index() {
       return acc;
     },
     { "match-result": 0, "correct-score": 0, "over-under": 0 },
+  );
+  const searchResults = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return [];
+
+    const combined = [...liveMatches, ...featuredMatches].filter((item) => {
+      const text = `${item.league} ${item.home} ${item.away}`.toLowerCase();
+      return text.includes(query);
+    });
+
+    return combined.slice(0, 5);
+  }, [searchQuery]);
+  const searchSuggestions = [
+    "Premier League",
+    "Champions League",
+    "Arsenal",
+    "Man City",
+    "NBA",
+  ];
+  const searchPanel = searchQuery.trim() ? (
+    searchResults.length > 0 ? (
+      <div className="absolute right-0 top-11 z-50 w-[24rem] overflow-hidden rounded-2xl border border-border bg-card shadow-elegant">
+        <div className="border-b border-border bg-surface px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+          Search results
+        </div>
+        <div className="max-h-80 divide-y divide-border overflow-auto">
+          {searchResults.map((match) => (
+            <div key={`${match.league}-${match.home}-${match.away}`} className="p-4">
+              <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                {match.league}
+              </div>
+              <div className="mt-1 font-semibold">
+                {match.home} vs {match.away}
+              </div>
+              <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
+                <span>{match.minute}</span>
+                <span>
+                  {match.odds.home.toFixed(2)} / {match.odds.draw.toFixed(2)} /{" "}
+                  {match.odds.away.toFixed(2)}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    ) : (
+      <div className="absolute right-0 top-11 z-50 w-[24rem] rounded-2xl border border-border bg-card p-4 text-sm text-muted-foreground shadow-elegant">
+        No matches found for "{searchQuery}".
+      </div>
+    )
+  ) : (
+    <div className="absolute right-0 top-11 z-50 w-[24rem] overflow-hidden rounded-2xl border border-border bg-card shadow-elegant">
+      <div className="border-b border-border bg-surface px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+        Popular searches
+      </div>
+      <div className="flex flex-wrap gap-2 p-4">
+        {searchSuggestions.map((item) => (
+          <button
+            key={item}
+            type="button"
+            onClick={() => setSearchQuery(item)}
+            className="rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-medium hover:bg-secondary"
+          >
+            {item}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 
   return (
@@ -332,8 +401,11 @@ function Index() {
               <input
                 type="search"
                 placeholder="Search teams, leagues, markets"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
                 className="h-9 w-80 rounded-lg border border-input bg-surface pl-9 pr-3 text-sm outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/30"
               />
+              {searchPanel}
             </div>
             <button className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground">
               <Bell className="h-4 w-4" />
