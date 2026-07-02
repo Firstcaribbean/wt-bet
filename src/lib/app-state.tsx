@@ -226,23 +226,26 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       withdrawals: snapshot.withdrawals,
       notifications: snapshot.notifications,
       signUp: async (input) => {
-        if (firebaseAuth) {
-          const credential = await createUserWithEmailAndPassword(
-            firebaseAuth,
-            input.email,
-            input.password,
-          );
-          await updateProfile(credential.user, { displayName: input.name });
-        }
         const result = await signUpAction({ data: input });
+        if (firebaseAuth) {
+          createUserWithEmailAndPassword(firebaseAuth, input.email, input.password)
+            .then(async (credential) => {
+              await updateProfile(credential.user, { displayName: input.name });
+            })
+            .catch(() => {
+              // Firebase is optional here; the app's own auth remains the source of truth.
+            });
+        }
         await refresh();
         return result.userId;
       },
       signIn: async (input) => {
-        if (firebaseAuth) {
-          await signInWithEmailAndPassword(firebaseAuth, input.email, input.password);
-        }
         const result = await signInAction({ data: input });
+        if (firebaseAuth) {
+          signInWithEmailAndPassword(firebaseAuth, input.email, input.password).catch(() => {
+            // Keep backend session login working even if Firebase auth is not ready.
+          });
+        }
         await refresh();
         return result.userId;
       },

@@ -127,6 +127,33 @@ function AccountPage() {
               ))}
             </div>
 
+            {mode === "sign-in" ? (
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setName("");
+                    setEmail("admin@wtbet.local");
+                    setPassword("admin123");
+                  }}
+                  className="rounded-lg border border-border bg-surface px-3 py-2 text-xs font-medium hover:bg-secondary"
+                >
+                  Use admin demo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setName("");
+                    setEmail("player@wtbet.local");
+                    setPassword("player123");
+                  }}
+                  className="rounded-lg border border-border bg-surface px-3 py-2 text-xs font-medium hover:bg-secondary"
+                >
+                  Use player demo
+                </button>
+              </div>
+            ) : null}
+
             <form className="mt-6 grid gap-4" onSubmit={handleSubmit}>
               {mode === "sign-up" ? (
                 <label className="grid gap-2 text-sm font-medium">
