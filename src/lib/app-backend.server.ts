@@ -40,6 +40,15 @@ const SESSION_CONFIG = {
 
 let memoryState: AppState | null = null;
 
+function assertPersistentBackendAvailable() {
+  if (getFirebaseFirestore()) return;
+  if (process.env.NODE_ENV !== "production") return;
+
+  throw new Error(
+    "Firebase/Firestore is not configured. Add the VITE_FIREBASE_* env vars in Vercel so W&T Bet can persist accounts, bets, and admin state.",
+  );
+}
+
 type SessionSnapshot = AppStateBootstrap;
 
 function cloneState<T>(value: T): T {
@@ -79,6 +88,8 @@ async function readState(): Promise<AppState> {
     return seed;
   }
 
+  assertPersistentBackendAvailable();
+
   if (!memoryState) {
     memoryState = normalizeState(createInitialState());
   }
@@ -95,6 +106,8 @@ async function writeState(state: AppState) {
     await setDoc(stateRef, next);
     return;
   }
+
+  assertPersistentBackendAvailable();
 
   memoryState = cloneState(next);
 }

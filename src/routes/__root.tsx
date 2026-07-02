@@ -10,7 +10,7 @@ import {
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
-import { AppStoreProvider } from "../lib/app-state";
+import { AppStoreProvider, useAppStore } from "../lib/app-state";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 
 function NotFoundComponent() {
@@ -129,9 +129,33 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AppStoreProvider>
+        <BackendBanner />
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
         <Outlet />
       </AppStoreProvider>
     </QueryClientProvider>
+  );
+}
+
+function BackendBanner() {
+  const { backendWarning, backendReady } = useAppStore();
+
+  if (backendReady && !backendWarning) {
+    return null;
+  }
+
+  return (
+    <div className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-foreground">
+      <div className="mx-auto flex max-w-[1440px] items-start gap-3 lg:px-4">
+        <span className="mt-1 inline-flex h-2.5 w-2.5 rounded-full bg-amber-500" />
+        <div className="space-y-1">
+          <p className="font-semibold">Backend setup required</p>
+          <p className="text-xs leading-5 text-muted-foreground">
+            {backendWarning ??
+              "Connect Firebase/Firestore env vars in Vercel so account, bets, deposits, and admin actions persist. The backend lives in TanStack Start server functions inside this repo."}
+          </p>
+        </div>
+      </div>
+    </div>
   );
 }

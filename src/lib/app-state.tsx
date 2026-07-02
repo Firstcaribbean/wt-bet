@@ -70,6 +70,8 @@ export type {
 
 type StoreShape = {
   hydrated: boolean;
+  backendReady: boolean;
+  backendWarning: string | null;
   theme: "light" | "dark";
   setTheme: (theme: "light" | "dark") => void;
   users: User[];
@@ -135,6 +137,12 @@ function createSnapshot(currentUserId: string | null): AppSnapshot {
 
 export function AppStoreProvider({ children }: { children: ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
+  const [backendReady, setBackendReady] = useState(isFirebaseConfigured());
+  const [backendWarning, setBackendWarning] = useState<string | null>(
+    isFirebaseConfigured()
+      ? null
+      : "Firebase/Firestore env vars are missing. The backend cannot persist state until they are configured in Vercel.",
+  );
   const [theme, setThemeState] = useState<"light" | "dark">("dark");
   const [snapshot, setSnapshot] = useState<AppSnapshot>(() => createSnapshot(null));
   const firebaseAuth = useMemo(() => getFirebaseAuth(), []);
@@ -168,6 +176,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const refresh = useCallback(async () => {
     const next = await fetchBootstrapState();
     setSnapshot(next);
+    setBackendReady(true);
+    setBackendWarning(null);
     return next;
   }, []);
 
@@ -200,7 +210,10 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
       refresh()
         .catch(() => {
-          // Keep the local fallback snapshot if the server is unavailable.
+          setBackendReady(false);
+          setBackendWarning(
+            "The backend is not ready yet. Check the Firebase/Firestore Vercel env vars and try again.",
+          );
         })
         .finally(() => {
           setHydrated(true);
@@ -211,7 +224,10 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
     refresh()
       .catch(() => {
-        // Keep the local fallback snapshot if the server is unavailable.
+        setBackendReady(false);
+        setBackendWarning(
+          "The backend is not ready yet. Check the Firebase/Firestore Vercel env vars and try again.",
+        );
       })
       .finally(() => {
         setHydrated(true);
@@ -240,6 +256,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const value = useMemo<StoreShape>(
     () => ({
       hydrated,
+      backendReady,
+      backendWarning,
       theme,
       setTheme: setThemeState,
       users: snapshot.users,
@@ -368,6 +386,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       snapshot.notifications,
       snapshot.users,
       snapshot.withdrawals,
+      backendReady,
+      backendWarning,
       firebaseAuth,
       theme,
       refresh,
