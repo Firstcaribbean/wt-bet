@@ -8,6 +8,13 @@ import {
   type ReactNode,
 } from "react";
 import {
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut as firebaseSignOut,
+  updateProfile,
+} from "firebase/auth";
+import {
   approveKycAction,
   approveWithdrawalAction,
   createLocalMatchAction,
@@ -23,6 +30,7 @@ import {
   updateMatchAction,
   verifyKycAction,
 } from "./app-backend.server";
+import { getFirebaseAuth, isFirebaseConfigured } from "./firebase";
 import {
   createInitialState,
   type AppSnapshot,
@@ -86,6 +94,11 @@ type StoreShape = {
   approveKyc: (userId: string) => Promise<void>;
 };
 
+const FIREBASE_SEEDS = [
+  { email: "admin@wtbet.local", password: "admin123", name: "W&T Admin" },
+  { email: "player@wtbet.local", password: "player123", name: "Demo Bettor" },
+];
+
 const AppStoreContext = createContext<StoreShape | null>(null);
 
 function createSnapshot(currentUserId: string | null): AppSnapshot {
@@ -100,6 +113,33 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
   const [theme, setThemeState] = useState<"light" | "dark">("dark");
   const [snapshot, setSnapshot] = useState<AppSnapshot>(() => createSnapshot(null));
+  const firebaseAuth = useMemo(() => getFirebaseAuth(), []);
+
+  const ensureFirebaseSeedAccounts = useCallback(async () => {
+    if (!firebaseAuth || firebaseAuth.currentUser) return;
+    if (window.localStorage.getItem("wt-bet-firebase-seeded") === "1") return;
+
+    for (const seed of FIREBASE_SEEDS) {
+      try {
+        const credential = await createUserWithEmailAndPassword(
+          firebaseAuth,
+          seed.email,
+          seed.password,
+        );
+        await updateProfile(credential.user, { displayName: seed.name });
+      } catch {
+        // The account probably already exists in Firebase Auth.
+      } finally {
+        if (firebaseAuth.currentUser) {
+          await firebaseSignOut(firebaseAuth).catch(() => {
+            // Keep moving if sign-out fails during bootstrap.
+          });
+        }
+      }
+    }
+
+    window.localStorage.setItem("wt-bet-firebase-seeded", "1");
+  }, [firebaseAuth]);
 
   const refresh = useCallback(async () => {
     const next = await fetchBootstrapState();
@@ -111,6 +151,38 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     const savedTheme = window.localStorage.getItem("wt-bet-theme");
     if (savedTheme === "light" || savedTheme === "dark") {
       setThemeState(savedTheme);
+    }
+
+    if (isFirebaseConfigured() && firebaseAuth) {
+      const unsubscribe = onAuthStateChanged(firebaseAuth, (authUser) => {
+        if (authUser) {
+          setSnapshot((current) => {
+            const match = current.users.find((user) => user.email === authUser.email) ?? null;
+            if (!match || current.currentUserId === match.id) {
+              return current;
+            }
+
+            return {
+              ...current,
+              currentUserId: match.id,
+            };
+          });
+        }
+      });
+
+      ensureFirebaseSeedAccounts().catch(() => {
+        // Seed bootstrapping is best-effort.
+      });
+
+      refresh()
+        .catch(() => {
+          // Keep the local fallback snapshot if the server is unavailable.
+        })
+        .finally(() => {
+          setHydrated(true);
+        });
+
+      return () => unsubscribe();
     }
 
     refresh()
@@ -154,16 +226,30 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       withdrawals: snapshot.withdrawals,
       notifications: snapshot.notifications,
       signUp: async (input) => {
+        if (firebaseAuth) {
+          const credential = await createUserWithEmailAndPassword(
+            firebaseAuth,
+            input.email,
+            input.password,
+          );
+          await updateProfile(credential.user, { displayName: input.name });
+        }
         const result = await signUpAction({ data: input });
         await refresh();
         return result.userId;
       },
       signIn: async (input) => {
+        if (firebaseAuth) {
+          await signInWithEmailAndPassword(firebaseAuth, input.email, input.password);
+        }
         const result = await signInAction({ data: input });
         await refresh();
         return result.userId;
       },
       signOut: async () => {
+        if (firebaseAuth) {
+          await firebaseSignOut(firebaseAuth);
+        }
         await signOutAction();
         await refresh();
       },
@@ -215,12 +301,14 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     [
       currentUser,
       hydrated,
+      ensureFirebaseSeedAccounts,
       snapshot.bets,
       snapshot.currentUserId,
       snapshot.matches,
       snapshot.notifications,
       snapshot.users,
       snapshot.withdrawals,
+      firebaseAuth,
       theme,
       refresh,
     ],
