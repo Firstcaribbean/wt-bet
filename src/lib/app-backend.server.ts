@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { clearSession, getSession, updateSession } from "@tanstack/react-start/server";
-import { kv } from "@vercel/kv";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { randomBytes, pbkdf2Sync, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import {
@@ -15,8 +15,9 @@ import {
   type User,
   type Withdrawal,
 } from "./app-model";
+import { getFirebaseFirestore } from "./firebase";
 
-const STATE_KEY = "wt-bet:state";
+const STATE_DOC = ["app", "wt-bet-state"] as const;
 const SESSION_CONFIG = {
   password: process.env.AUTH_SECRET ?? "wt-bet-dev-secret",
   name: "wt-bet-session",
@@ -28,11 +29,6 @@ const SESSION_CONFIG = {
     maxAge: 60 * 60 * 24 * 30,
   },
 };
-
-const hasKv =
-  Boolean(process.env.KV_REST_API_URL) &&
-  Boolean(process.env.KV_REST_API_TOKEN) &&
-  Boolean(process.env.KV_REST_API_READ_ONLY_TOKEN);
 
 let memoryState: AppState | null = null;
 
@@ -61,13 +57,17 @@ function normalizeState(state: AppState): AppState {
 }
 
 async function readState(): Promise<AppState> {
-  if (hasKv) {
-    const stored = await kv.get<AppState>(STATE_KEY);
-    if (stored) {
-      return normalizeState(stored);
+  const firestore = getFirebaseFirestore();
+
+  if (firestore) {
+    const stateRef = doc(firestore, STATE_DOC[0], STATE_DOC[1]);
+    const snapshot = await getDoc(stateRef);
+    if (snapshot.exists()) {
+      return normalizeState(snapshot.data() as AppState);
     }
+
     const seed = normalizeState(createInitialState());
-    await kv.set(STATE_KEY, seed);
+    await setDoc(stateRef, seed);
     return seed;
   }
 
@@ -80,8 +80,11 @@ async function readState(): Promise<AppState> {
 
 async function writeState(state: AppState) {
   const next = normalizeState(state);
-  if (hasKv) {
-    await kv.set(STATE_KEY, next);
+  const firestore = getFirebaseFirestore();
+
+  if (firestore) {
+    const stateRef = doc(firestore, STATE_DOC[0], STATE_DOC[1]);
+    await setDoc(stateRef, next);
     return;
   }
 
