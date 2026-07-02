@@ -25,8 +25,8 @@ function AccountPage() {
 
   const [mode, setMode] = useState<"sign-in" | "sign-up">("sign-in");
   const [name, setName] = useState("");
-  const [email, setEmail] = useState(currentUser?.email ?? "player@wtbet.local");
-  const [password, setPassword] = useState("player123");
+  const [email, setEmail] = useState(currentUser?.email ?? "");
+  const [password, setPassword] = useState("");
   const [depositAmount, setDepositAmount] = useState("100");
   const [withdrawAmount, setWithdrawAmount] = useState("50");
   const [kycFullName, setKycFullName] = useState(currentUser?.name ?? "");
@@ -180,32 +180,10 @@ function AccountPage() {
               ))}
             </div>
 
-            {mode === "sign-in" ? (
-              <div className="mt-4 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setName("");
-                    setEmail("admin@wtbet.local");
-                    setPassword("admin123");
-                  }}
-                  className="rounded-lg border border-border bg-surface px-3 py-2 text-xs font-medium hover:bg-secondary"
-                >
-                  Use admin demo
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setName("");
-                    setEmail("player@wtbet.local");
-                    setPassword("player123");
-                  }}
-                  className="rounded-lg border border-border bg-surface px-3 py-2 text-xs font-medium hover:bg-secondary"
-                >
-                  Use player demo
-                </button>
-              </div>
-            ) : null}
+            <p className="mt-4 text-xs leading-5 text-muted-foreground">
+              Create a real account to start betting. Admin access comes from the seeded backend
+              account once the Firebase env vars are configured in Vercel.
+            </p>
 
             <form className="mt-6 grid gap-4" onSubmit={handleSubmit}>
               {mode === "sign-up" ? (
@@ -226,6 +204,7 @@ function AccountPage() {
                   onChange={(event) => setEmail(event.target.value)}
                   type="email"
                   required
+                  placeholder="you@example.com"
                   className="h-11 rounded-lg border border-input bg-background px-3 outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
                 />
               </label>
@@ -236,6 +215,7 @@ function AccountPage() {
                   onChange={(event) => setPassword(event.target.value)}
                   type="password"
                   required
+                  placeholder="Your password"
                   className="h-11 rounded-lg border border-input bg-background px-3 outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
                 />
               </label>

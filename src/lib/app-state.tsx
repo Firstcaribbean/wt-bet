@@ -122,7 +122,6 @@ type StoreShape = {
 
 const FIREBASE_SEEDS = [
   { email: "admin@wtbet.local", password: "admin123", name: "W&T Admin" },
-  { email: "player@wtbet.local", password: "player123", name: "Demo Bettor" },
 ];
 
 const AppStoreContext = createContext<StoreShape | null>(null);

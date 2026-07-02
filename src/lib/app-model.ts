@@ -153,28 +153,8 @@ export function createInitialState(): AppState {
     createdAt: new Date().toISOString(),
   };
 
-  const demoUser: User = {
-    id: "user-1",
-    name: "Demo Bettor",
-    email: "player@wtbet.local",
-    password: "player123",
-    role: "user",
-    balance: 1248.5,
-    kycStatus: "pending",
-    kycSubmission: {
-      fullName: "Demo Bettor",
-      country: "Barbados",
-      address: "123 Demo Street, Bridgetown",
-      documentType: "National ID",
-      documentNumber: "DB-1001",
-      submittedAt: new Date().toISOString(),
-    },
-    watchlistMatchIds: ["match-1", "match-2"],
-    createdAt: new Date().toISOString(),
-  };
-
   return {
-    users: [adminUser, demoUser],
+    users: [adminUser],
     matches: [
       {
         id: "match-1",

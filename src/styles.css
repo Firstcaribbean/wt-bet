@@ -56,7 +56,7 @@
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.18 0.04 250);
 
-  --primary: oklch(0.42 0.15 255);          /* deep intelligent blue */
+  --primary: oklch(0.42 0.15 255);
   --primary-foreground: oklch(0.99 0.005 240);
   --primary-glow: oklch(0.62 0.18 245);
 

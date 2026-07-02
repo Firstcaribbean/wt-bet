@@ -477,8 +477,8 @@ function Index() {
       </header>
 
       <div className="mx-auto max-w-[1440px] px-4 py-6 lg:px-8">
-        <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)_340px]">
-          <aside className="hidden lg:block">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+          <aside className="hidden">
             <div className="sticky top-24 space-y-6">
               <div>
                 <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -562,9 +562,6 @@ function Index() {
                     Browse live odds, check account status, and move between betting and admin
                     screens without the oversized landing-page feel.
                   </p>
-                  <p className="mt-3 text-[11px] uppercase tracking-[0.28em] text-white/65">
-                    Browsing {selectedSport} · {selectedFilter.toLowerCase()}
-                  </p>
                   <div className="mt-5 flex flex-wrap gap-2.5">
                     <Link
                       to="/sports"
@@ -580,7 +577,7 @@ function Index() {
                       Watch live
                     </Link>
                   </div>
-                  <div className="mt-5 grid max-w-2xl grid-cols-2 gap-3 border-t border-white/15 pt-4 sm:grid-cols-4">
+                  <div className="mt-5 hidden max-w-2xl grid-cols-2 gap-3 border-t border-white/15 pt-4 sm:grid-cols-4">
                     {activityItems.map((item) => (
                       <div
                         key={item.label}
@@ -904,7 +901,7 @@ function Index() {
               </div>
             </section>
 
-            <section className="grid gap-3 md:grid-cols-2">
+            <section className="hidden grid gap-3 md:grid-cols-2">
               {insightCards.map((card) => (
                 <article
                   key={card.title}
@@ -957,7 +954,7 @@ function Index() {
                 onClear={() => setSlip([])}
               />
 
-              <div className="rounded-xl border border-border bg-card p-4 shadow-card">
+              <div className="hidden rounded-xl border border-border bg-card p-4 shadow-card">
                 <div className="mb-3 flex items-center gap-2">
                   <Megaphone className="h-4 w-4 text-accent" />
                   <h3 className="font-display text-sm font-bold">Alerts and reminders</h3>
@@ -978,7 +975,7 @@ function Index() {
                 </div>
               </div>
 
-              <div className="rounded-xl border border-border bg-card p-4 shadow-card">
+              <div className="hidden rounded-xl border border-border bg-card p-4 shadow-card">
                 <div className="mb-3 flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4 text-live" />
                   <h3 className="font-display text-sm font-bold">Withdrawal policy</h3>

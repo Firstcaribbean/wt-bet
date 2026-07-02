@@ -11,7 +11,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { AppStoreProvider, useAppStore } from "../lib/app-state";
-import { reportLovableError } from "../lib/lovable-error-reporting";
+import { reportAppError } from "../lib/error-reporting";
 
 function NotFoundComponent() {
   return (
@@ -39,7 +39,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
   useEffect(() => {
-    reportLovableError(error, { boundary: "tanstack_root_error_component" });
+    reportAppError(error, { boundary: "tanstack_root_error_component" });
   }, [error]);
 
   return (
@@ -78,13 +78,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "W&T Bet — Smart Sports Betting Platform" },
+      { title: "W&T Bet - Smart Sports Betting Platform" },
       {
         name: "description",
         content:
           "W&T Bet is a modern, organized sports betting platform with live odds, in-play markets, and intelligent tools for informed wagering.",
       },
-      { property: "og:title", content: "W&T Bet — Smart Sports Betting Platform" },
+      { property: "og:title", content: "W&T Bet - Smart Sports Betting Platform" },
       {
         property: "og:description",
         content: "Live odds, advanced markets, and a clean interface built for smart bettors.",
