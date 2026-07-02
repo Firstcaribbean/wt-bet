@@ -32,6 +32,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useAppStore } from "../lib/app-state";
+import { getCorrectScoreOptions, getTotalsOptions } from "../lib/market-utils";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -58,7 +59,9 @@ type Selection = {
   matchId: string;
   match: string;
   market: string;
-  selection: "home" | "draw" | "away";
+  marketType: "match-result" | "correct-score" | "over-under";
+  selection: string;
+  line?: number;
   pick: string;
   odds: number;
 };
@@ -232,7 +235,15 @@ const activityItems = [
 ];
 
 function Index() {
-  const { currentUser, theme, setTheme, placeAccumulatorBet, matches, signOut } = useAppStore();
+  const {
+    currentUser,
+    theme,
+    setTheme,
+    placeAccumulatorBet,
+    matches,
+    signOut,
+    toggleWatchlistMatch,
+  } = useAppStore();
   const [slip, setSlip] = useState<Selection[]>([]);
   const [stake, setStake] = useState<string>("10");
   const [slipOpen, setSlipOpen] = useState(false);
@@ -265,6 +276,15 @@ function Index() {
   };
 
   const isSelected = (id: string) => slip.some((selection) => selection.id === id);
+  const isWatching = (matchId: string) =>
+    currentUser?.watchlistMatchIds?.includes(matchId) ?? false;
+  const marketCount = slip.reduce(
+    (acc, item) => {
+      acc[item.marketType] += 1;
+      return acc;
+    },
+    { "match-result": 0, "correct-score": 0, "over-under": 0 },
+  );
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -553,12 +573,25 @@ function Index() {
                     key={match.id}
                     className="group rounded-xl border border-border bg-card p-4 shadow-card transition-all hover:border-primary/40 hover:shadow-elegant"
                   >
-                    <div className="mb-3 flex items-center justify-between text-xs">
+                    <div className="mb-3 flex items-center justify-between gap-2 text-xs">
                       <span className="font-medium text-muted-foreground">{match.league}</span>
-                      <span className="flex items-center gap-1.5 font-semibold text-live">
-                        <Clock className="h-3 w-3" />
-                        {match.minute}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void toggleWatchlistMatch(match.id)}
+                          className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
+                            isWatching(match.id)
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-border bg-surface text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          {isWatching(match.id) ? "Watching" : "Watch"}
+                        </button>
+                        <span className="flex items-center gap-1.5 font-semibold text-live">
+                          <Clock className="h-3 w-3" />
+                          {match.minute}
+                        </span>
+                      </div>
                     </div>
                     <div className="mb-4 space-y-1.5">
                       <div className="flex items-center justify-between">
@@ -609,6 +642,97 @@ function Index() {
                               {match.odds[market].toFixed(2)}
                             </span>
                           </button>
+                        );
+                      })}
+                    </div>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                      {getCorrectScoreOptions(match)
+                        .slice(0, 4)
+                        .map((option) => {
+                          const id = `${match.id}-cs-${option.scoreline}`;
+                          const active = isSelected(id);
+                          return (
+                            <button
+                              key={option.scoreline}
+                              type="button"
+                              onClick={() =>
+                                addSelection({
+                                  id,
+                                  matchId: match.id,
+                                  match: `${match.home} vs ${match.away}`,
+                                  market: "Correct score",
+                                  marketType: "correct-score",
+                                  selection: option.scoreline,
+                                  pick: option.scoreline,
+                                  odds: option.odds,
+                                })
+                              }
+                              className={`rounded-lg border px-3 py-2 text-left text-sm transition-all ${
+                                active
+                                  ? "border-primary bg-primary text-primary-foreground shadow-glow"
+                                  : "border-border bg-surface hover:border-primary/40 hover:bg-primary/5"
+                              }`}
+                            >
+                              <div className="text-[10px] font-semibold uppercase tracking-wider opacity-70">
+                                Correct score
+                              </div>
+                              <div className="mt-1 flex items-center justify-between gap-2">
+                                <span className="font-display font-bold">{option.scoreline}</span>
+                                <span className="font-display font-bold tabular-nums">
+                                  {option.odds.toFixed(2)}
+                                </span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                    </div>
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                      {getTotalsOptions(match).map((option) => {
+                        const overId = `${match.id}-ou-over-${option.line}`;
+                        const underId = `${match.id}-ou-under-${option.line}`;
+                        return (
+                          <div key={option.line} className="grid grid-cols-2 gap-1.5">
+                            {[
+                              { id: overId, label: "Over", odds: option.over, selection: "over" },
+                              { id: underId, label: "Under", odds: option.under, selection: "under" },
+                            ].map((entry) => {
+                              const active = isSelected(entry.id);
+                              return (
+                                <button
+                                  key={entry.id}
+                                  type="button"
+                                  onClick={() =>
+                                    addSelection({
+                                      id: entry.id,
+                                      matchId: match.id,
+                                      match: `${match.home} vs ${match.away}`,
+                                      market: `Totals ${option.line.toFixed(1)}`,
+                                      marketType: "over-under",
+                                      selection: entry.selection,
+                                      line: option.line,
+                                      pick: `${entry.label} ${option.line.toFixed(1)}`,
+                                      odds: entry.odds,
+                                    })
+                                  }
+                                  className={`rounded-lg border px-3 py-2 text-left text-sm transition-all ${
+                                    active
+                                      ? "border-primary bg-primary text-primary-foreground shadow-glow"
+                                      : "border-border bg-surface hover:border-primary/40 hover:bg-primary/5"
+                                  }`}
+                                >
+                                  <div className="text-[10px] font-semibold uppercase tracking-wider opacity-70">
+                                    {entry.label} {option.line.toFixed(1)}
+                                  </div>
+                                  <div className="mt-1 flex items-center justify-between gap-2">
+                                    <span className="font-display font-bold">{entry.label}</span>
+                                    <span className="font-display font-bold tabular-nums">
+                                      {entry.odds.toFixed(2)}
+                                    </span>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
                         );
                       })}
                     </div>
@@ -742,12 +866,15 @@ function Index() {
                 setStake={setStake}
                 totalOdds={totalOdds}
                 payout={payout}
+                marketCount={marketCount}
                 onPlaceBet={async () => {
                   await placeAccumulatorBet({
                     stake: stakeValue,
                     selections: slip.map((selection) => ({
                       matchId: selection.matchId,
+                      marketType: selection.marketType,
                       selection: selection.selection,
+                      line: selection.line,
                     })),
                   });
                   setSlip([]);
@@ -819,12 +946,15 @@ function Index() {
               setStake={setStake}
               totalOdds={totalOdds}
               payout={payout}
+              marketCount={marketCount}
               onPlaceBet={async () => {
                 await placeAccumulatorBet({
                   stake: stakeValue,
                   selections: slip.map((selection) => ({
                     matchId: selection.matchId,
+                    marketType: selection.marketType,
                     selection: selection.selection,
+                    line: selection.line,
                   })),
                 });
                 setSlip([]);
@@ -868,6 +998,7 @@ function BetSlip({
   setStake,
   totalOdds,
   payout,
+  marketCount,
   onPlaceBet,
   onRemove,
   onClear,
@@ -877,6 +1008,7 @@ function BetSlip({
   setStake: (value: string) => void;
   totalOdds: number;
   payout: number;
+  marketCount: { "match-result": number; "correct-score": number; "over-under": number };
   onPlaceBet: () => Promise<void>;
   onRemove: (id: string) => void;
   onClear: () => void;
@@ -889,6 +1021,10 @@ function BetSlip({
             <span className="text-xs font-bold">{slip.length}</span>
           </div>
           <h3 className="font-display text-sm font-bold">Bet slip</h3>
+        </div>
+        <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+          {marketCount["match-result"]} result · {marketCount["correct-score"]} correct score ·{" "}
+          {marketCount["over-under"]} totals
         </div>
         {slip.length > 0 ? (
           <button

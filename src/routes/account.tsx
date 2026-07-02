@@ -11,12 +11,15 @@ function AccountPage() {
   const {
     currentUser,
     bets,
+    matches,
+    deposits,
     withdrawals,
     notifications,
     signUp,
     signIn,
     signOut,
     submitKyc,
+    requestDeposit,
     requestWithdrawal,
   } = useAppStore();
 
@@ -24,6 +27,7 @@ function AccountPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState(currentUser?.email ?? "player@wtbet.local");
   const [password, setPassword] = useState("player123");
+  const [depositAmount, setDepositAmount] = useState("100");
   const [withdrawAmount, setWithdrawAmount] = useState("50");
   const [kycFullName, setKycFullName] = useState(currentUser?.name ?? "");
   const [kycCountry, setKycCountry] = useState("Barbados");
@@ -48,7 +52,18 @@ function AccountPage() {
     () => withdrawals.filter((item) => item.userId === currentUser?.id).slice(0, 5),
     [withdrawals, currentUser?.id],
   );
+  const myDeposits = useMemo(
+    () => deposits.filter((item) => item.userId === currentUser?.id).slice(0, 5),
+    [deposits, currentUser?.id],
+  );
   const myNotifications = useMemo(() => notifications.slice(0, 4), [notifications]);
+  const watchlistMatches = useMemo(
+    () =>
+      (currentUser?.watchlistMatchIds ?? [])
+        .map((matchId) => matches.find((item) => item.id === matchId))
+        .filter(Boolean),
+    [currentUser?.watchlistMatchIds, matches],
+  );
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -71,6 +86,15 @@ function AccountPage() {
       setMessage("Withdrawal request created.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Unable to request withdrawal.");
+    }
+  };
+
+  const handleDeposit = async () => {
+    try {
+      await requestDeposit(Number(depositAmount));
+      setMessage("Deposit request created.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to request deposit.");
     }
   };
 
@@ -261,6 +285,23 @@ function AccountPage() {
               </div>
               <div className="mt-4 grid gap-3">
                 <label className="grid gap-2 text-sm font-medium">
+                  Deposit amount
+                  <input
+                    value={depositAmount}
+                    onChange={(event) => setDepositAmount(event.target.value)}
+                    type="number"
+                    min="0"
+                    className="h-11 rounded-lg border border-input bg-background px-3 outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={handleDeposit}
+                  className="rounded-xl bg-gradient-primary px-4 py-3 text-sm font-semibold text-primary-foreground"
+                >
+                  Request deposit
+                </button>
+                <label className="grid gap-2 text-sm font-medium">
                   Withdrawal amount
                   <input
                     value={withdrawAmount}
@@ -389,6 +430,30 @@ function AccountPage() {
             </div>
 
             <div className="rounded-2xl border border-border bg-card p-5 shadow-card">
+              <h2 className="font-display text-lg font-bold">Deposits</h2>
+              <div className="mt-4 space-y-3">
+                {myDeposits.length > 0 ? (
+                  myDeposits.map((item) => (
+                    <div
+                      key={item.id}
+                      className="rounded-lg border border-border bg-surface p-3 text-sm"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span>${item.amount.toFixed(2)}</span>
+                        <span className="font-semibold uppercase">{item.status}</span>
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Requested {new Date(item.createdAt).toLocaleString()}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">No deposit requests yet.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-border bg-card p-5 shadow-card">
               <h2 className="font-display text-lg font-bold">Withdrawals</h2>
               <div className="mt-4 space-y-3">
                 {myWithdrawals.length > 0 ? (
@@ -424,6 +489,29 @@ function AccountPage() {
                     <p className="mt-1 text-xs text-muted-foreground">{item.message}</p>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-border bg-card p-5 shadow-card">
+              <h2 className="font-display text-lg font-bold">Watchlist</h2>
+              <div className="mt-4 space-y-2">
+                {watchlistMatches.length > 0 ? (
+                  watchlistMatches.map((match) => (
+                    <div
+                      key={match?.id}
+                      className="rounded-lg border border-border bg-surface p-3 text-sm"
+                    >
+                      <div className="font-semibold">{match?.home} vs {match?.away}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {match?.league} · {match?.status} · {match?.minute}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Save matches from the home page to get alerts here.
+                  </p>
+                )}
               </div>
             </div>
           </aside>

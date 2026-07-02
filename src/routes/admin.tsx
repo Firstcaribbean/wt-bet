@@ -13,10 +13,13 @@ function AdminPage() {
     users,
     matches,
     bets,
+    deposits,
     withdrawals,
     createLocalMatch,
     updateMatch,
     settleMatch,
+    approveDeposit,
+    rejectDeposit,
     approveWithdrawal,
     rejectWithdrawal,
     approveKyc,
@@ -49,10 +52,13 @@ function AdminShell() {
     users,
     matches,
     bets,
+    deposits,
     withdrawals,
     createLocalMatch,
     updateMatch,
     settleMatch,
+    approveDeposit,
+    rejectDeposit,
     approveWithdrawal,
     rejectWithdrawal,
     approveKyc,
@@ -72,9 +78,22 @@ function AdminShell() {
       { label: "Users", value: users.length },
       { label: "Matches", value: matches.length },
       { label: "Open bets", value: bets.filter((bet) => bet.status === "open").length },
+      { label: "Deposits", value: deposits.length },
       { label: "Withdrawals", value: withdrawals.length },
     ],
-    [bets, matches.length, users.length, withdrawals.length],
+    [bets, deposits.length, matches.length, users.length, withdrawals.length],
+  );
+  const totalFees = useMemo(
+    () =>
+      withdrawals
+        .filter((item) => item.status === "approved")
+        .reduce((acc, item) => acc + item.serviceFee, 0)
+        .toFixed(2),
+    [withdrawals],
+  );
+  const pendingDeposits = useMemo(
+    () => deposits.filter((item) => item.status === "requested"),
+    [deposits],
   );
 
   const simulatedMatches = useMemo(
@@ -331,7 +350,38 @@ function AdminShell() {
               </div>
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-2">
+            <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-2xl border border-border bg-card p-5 shadow-card">
+                <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
+                  Fees collected
+                </div>
+                <div className="mt-2 font-display text-2xl font-bold">${totalFees}</div>
+              </div>
+              <div className="rounded-2xl border border-border bg-card p-5 shadow-card">
+                <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
+                  Pending deposits
+                </div>
+                <div className="mt-2 font-display text-2xl font-bold">{pendingDeposits.length}</div>
+              </div>
+              <div className="rounded-2xl border border-border bg-card p-5 shadow-card">
+                <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
+                  Pending withdrawals
+                </div>
+                <div className="mt-2 font-display text-2xl font-bold">
+                  {withdrawals.filter((item) => item.status === "requested").length}
+                </div>
+              </div>
+              <div className="rounded-2xl border border-border bg-card p-5 shadow-card">
+                <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
+                  Verified users
+                </div>
+                <div className="mt-2 font-display text-2xl font-bold">
+                  {users.filter((user) => user.kycStatus === "verified").length}
+                </div>
+              </div>
+            </section>
+
+            <div className="grid gap-6 xl:grid-cols-3">
               <div className="rounded-2xl border border-border bg-card p-6 shadow-card">
                 <div className="flex items-center gap-2">
                   <BanknoteArrowDown className="h-5 w-5 text-live" />
@@ -369,6 +419,47 @@ function AdminShell() {
                     ))
                   ) : (
                     <p className="text-sm text-muted-foreground">No withdrawals waiting.</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-border bg-card p-6 shadow-card">
+                <div className="flex items-center gap-2">
+                  <CalendarClock className="h-5 w-5 text-accent" />
+                  <h2 className="font-display text-xl font-bold">Deposit queue</h2>
+                </div>
+                <div className="mt-4 space-y-3">
+                  {pendingDeposits.length > 0 ? (
+                    pendingDeposits.map((item) => (
+                      <div key={item.id} className="rounded-xl border border-border bg-surface p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <div className="font-semibold">${item.amount.toFixed(2)}</div>
+                            <div className="text-xs text-muted-foreground">
+                              Requested {new Date(item.createdAt).toLocaleString()}
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => void approveDeposit(item.id)}
+                              className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void rejectDeposit(item.id)}
+                              className="rounded-lg border border-border bg-card px-3 py-2 text-xs font-medium"
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No deposit requests waiting.</p>
                   )}
                 </div>
               </div>

@@ -16,26 +16,33 @@ import {
 } from "firebase/auth";
 import {
   approveKycAction,
+  approveDepositAction,
   approveWithdrawalAction,
   createLocalMatchAction,
   fetchBootstrapState,
   placeAccumulatorBetAction,
   placeBetAction,
   rejectWithdrawalAction,
+  rejectDepositAction,
   requestWithdrawalAction,
+  requestDepositAction,
   settleMatchAction,
   signInAction,
   signOutAction,
   signUpAction,
   submitKycAction,
+  toggleWatchlistMatchAction,
   updateMatchAction,
 } from "./app-backend.server";
 import { getFirebaseAuth, isFirebaseConfigured } from "./firebase";
+import type { MarketSelection } from "./market-utils";
 import {
   createInitialState,
   type AppSnapshot,
   type Bet,
   type BetStatus,
+  type Deposit,
+  type DepositStatus,
   type KycStatus,
   type Match,
   type MatchStatus,
@@ -57,6 +64,8 @@ export type {
   User,
   Withdrawal,
   WithdrawalStatus,
+  Deposit,
+  DepositStatus,
 } from "./app-model";
 
 type StoreShape = {
@@ -68,8 +77,10 @@ type StoreShape = {
   currentUser: User | null;
   matches: Match[];
   bets: Bet[];
+  deposits: Deposit[];
   withdrawals: Withdrawal[];
   notifications: Notification[];
+  toggleWatchlistMatch: (matchId: string) => Promise<void>;
   signUp: (input: { name: string; email: string; password: string }) => Promise<string>;
   signIn: (input: { email: string; password: string }) => Promise<string>;
   signOut: () => Promise<void>;
@@ -83,14 +94,17 @@ type StoreShape = {
   }) => Promise<void>;
   placeBet: (input: {
     matchId: string;
-    selection: "home" | "draw" | "away";
+    marketType?: "match-result" | "correct-score" | "over-under";
+    selection: string;
+    line?: number;
     stake: number;
   }) => Promise<string>;
   placeAccumulatorBet: (input: {
-    selections: Array<{ matchId: string; selection: "home" | "draw" | "away" }>;
+    selections: Array<MarketSelection & { matchId: string }>;
     stake: number;
   }) => Promise<string>;
   requestWithdrawal: (amount: number) => Promise<string>;
+  requestDeposit: (amount: number) => Promise<string>;
   verifyKyc: () => Promise<void>;
   createLocalMatch: (
     input: Omit<Match, "id" | "status"> & { status?: MatchStatus },
@@ -99,6 +113,8 @@ type StoreShape = {
   settleMatch: (input: { matchId: string; result: "home" | "draw" | "away" }) => Promise<void>;
   approveWithdrawal: (id: string) => Promise<void>;
   rejectWithdrawal: (id: string) => Promise<void>;
+  approveDeposit: (id: string) => Promise<void>;
+  rejectDeposit: (id: string) => Promise<void>;
   approveKyc: (userId: string) => Promise<void>;
 };
 
@@ -231,6 +247,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       currentUser,
       matches: snapshot.matches,
       bets: snapshot.bets,
+      deposits: snapshot.deposits,
       withdrawals: snapshot.withdrawals,
       notifications: snapshot.notifications,
       signUp: async (input) => {
@@ -279,6 +296,11 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         await refresh();
         return result.withdrawalId;
       },
+      requestDeposit: async (amount) => {
+        const result = await requestDepositAction({ data: { amount } });
+        await refresh();
+        return result.depositId;
+      },
       submitKyc: async (input) => {
         await submitKycAction({ data: input });
         await refresh();
@@ -318,8 +340,20 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         await rejectWithdrawalAction({ data: { id } });
         await refresh();
       },
+      approveDeposit: async (id) => {
+        await approveDepositAction({ data: { id } });
+        await refresh();
+      },
+      rejectDeposit: async (id) => {
+        await rejectDepositAction({ data: { id } });
+        await refresh();
+      },
       approveKyc: async (userId) => {
         await approveKycAction({ data: { userId } });
+        await refresh();
+      },
+      toggleWatchlistMatch: async (matchId) => {
+        await toggleWatchlistMatchAction({ data: { matchId } });
         await refresh();
       },
     }),
@@ -328,6 +362,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       hydrated,
       ensureFirebaseSeedAccounts,
       snapshot.bets,
+      snapshot.deposits,
       snapshot.currentUserId,
       snapshot.matches,
       snapshot.notifications,

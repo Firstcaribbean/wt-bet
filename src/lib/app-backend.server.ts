@@ -10,6 +10,7 @@ import {
   type AppStateBootstrap,
   type Bet,
   type FootballFeedItem,
+  type Deposit,
   type KycSubmission,
   type Match,
   type Notification,
@@ -17,6 +18,12 @@ import {
   type Withdrawal,
 } from "./app-model";
 import { getFirebaseFirestore } from "./firebase";
+import {
+  getCorrectScoreOdds,
+  getOverUnderOdds,
+  getMarketPickLabel,
+  parseScore,
+} from "./market-utils";
 
 const STATE_DOC = ["app", "wt-bet-state"] as const;
 const SESSION_CONFIG = {
@@ -113,6 +120,41 @@ function getCurrentUser(state: AppState, currentUserId: string | null) {
 
 function appendNotification(state: AppState, notification: Notification) {
   state.notifications = [notification, ...state.notifications];
+}
+
+function resolveMarketOutcome(
+  match: Match,
+  leg: Bet["legs"][number],
+): boolean | null {
+  const score = parseScore(match.score);
+  if (!score && match.status !== "settled") {
+    return null;
+  }
+
+  const finalHome = score?.home ?? 0;
+  const finalAway = score?.away ?? 0;
+  const totalGoals = finalHome + finalAway;
+
+  if (leg.marketType === "match-result") {
+    if (!match.settledResult && match.status !== "settled") return null;
+    const result =
+      match.settledResult ??
+      (finalHome > finalAway ? "home" : finalHome < finalAway ? "away" : "draw");
+    return leg.selection === result;
+  }
+
+  if (leg.marketType === "correct-score") {
+    return leg.selection === `${finalHome}-${finalAway}`;
+  }
+
+  if (leg.marketType === "over-under") {
+    const line = leg.line ?? 2.5;
+    if (leg.selection === "over") return totalGoals > line;
+    if (leg.selection === "under") return totalGoals < line;
+    return null;
+  }
+
+  return null;
 }
 
 function createSimulationSeed() {
@@ -298,7 +340,7 @@ function normalizeFootballDataItem(raw: unknown, fallbackIndex: number): Footbal
   };
 }
 
-function settleBets(state: AppState, matchId: string, result: "home" | "draw" | "away") {
+function settleBets(state: AppState, matchId: string, _result: "home" | "draw" | "away") {
   state.bets = state.bets.map((bet) => {
     if (bet.status !== "open") return bet;
 
@@ -306,7 +348,27 @@ function settleBets(state: AppState, matchId: string, result: "home" | "draw" | 
     if (!legForMatch) return bet;
 
     if (bet.kind === "single") {
-      const won = legForMatch.selection === result;
+      const marketOutcome =
+        legForMatch.marketType === "match-result"
+          ? legForMatch.selection === result
+          : resolveMarketOutcome(
+              state.matches.find((item) => item.id === matchId) ?? {
+                id: matchId,
+                league: "",
+                home: "",
+                away: "",
+                status: "settled",
+                minute: "FT",
+                score: "0-0",
+                homeOdds: 1,
+                drawOdds: 1,
+                awayOdds: 1,
+                featured: false,
+                live: false,
+              },
+              legForMatch,
+            ) ?? false;
+      const won = marketOutcome;
       if (won) {
         state.users = state.users.map((user) =>
           user.id === bet.userId
@@ -321,13 +383,11 @@ function settleBets(state: AppState, matchId: string, result: "home" | "draw" | 
       const settledMatch = state.matches.find((item) => item.id === leg.matchId);
       return {
         ...leg,
-        outcome: settledMatch?.settledResult,
+        outcome: settledMatch ? resolveMarketOutcome(settledMatch, leg) : null,
       };
     });
 
-    const anyLost = evaluatedLegs.some(
-      (leg) => leg.outcome != null && leg.outcome !== leg.selection,
-    );
+    const anyLost = evaluatedLegs.some((leg) => leg.outcome === false);
     const allSettled = evaluatedLegs.every((leg) => leg.outcome != null);
 
     if (anyLost) {
@@ -469,6 +529,7 @@ export const signUpAction = createServerFn({ method: "POST" })
       balance: 1000,
       kycStatus: "unverified",
       kycSubmission: undefined,
+      watchlistMatchIds: [],
       createdAt: new Date().toISOString(),
     };
 
@@ -520,7 +581,9 @@ export const placeBetAction = createServerFn({ method: "POST" })
   .validator(
     z.object({
       matchId: z.string().min(1),
-      selection: z.enum(["home", "draw", "away"]),
+      marketType: z.enum(["match-result", "correct-score", "over-under"]).optional(),
+      selection: z.string().min(1),
+      line: z.number().positive().optional(),
       stake: z.number().positive(),
     }),
   )
@@ -535,28 +598,36 @@ export const placeBetAction = createServerFn({ method: "POST" })
     const match = state.matches.find((item) => item.id === data.matchId);
     if (!match) throw new Error("Match not found.");
 
-    const odds =
-      data.selection === "home"
-        ? match.homeOdds
-        : data.selection === "draw"
-          ? match.drawOdds
-          : match.awayOdds;
-    const pick =
-      data.selection === "home" ? match.home : data.selection === "draw" ? "Draw" : match.away;
+    const marketType = data.marketType ?? "match-result";
+    const market = getMarketPickLabel(match, {
+      marketType,
+      selection: data.selection,
+      line: data.line,
+    });
 
     const bet: Bet = {
       id: createId("bet"),
       userId: currentUser.id,
       matchId: data.matchId,
       kind: "single",
+      marketType,
       selection: data.selection,
-      pick,
+      pick: market.pick,
       stake: data.stake,
-      odds,
-      potentialPayout: Number((data.stake * odds).toFixed(2)),
+      odds: market.odds,
+      potentialPayout: Number((data.stake * market.odds).toFixed(2)),
       status: "open",
       placedAt: new Date().toISOString(),
-      legs: [{ matchId: data.matchId, selection: data.selection, pick, odds }],
+      legs: [
+        {
+          matchId: data.matchId,
+          marketType,
+          selection: data.selection,
+          pick: market.pick,
+          odds: market.odds,
+          line: data.line,
+        },
+      ],
     };
 
     const nextState: AppState = {
@@ -571,7 +642,7 @@ export const placeBetAction = createServerFn({ method: "POST" })
         {
           id: createId("notification"),
           title: "Bet placed",
-          message: `${pick} on ${match.home} vs ${match.away}`,
+          message: `${market.label}: ${market.pick} on ${match.home} vs ${match.away}`,
           createdAt: new Date().toISOString(),
         },
         ...state.notifications,
@@ -589,7 +660,9 @@ export const placeAccumulatorBetAction = createServerFn({ method: "POST" })
         .array(
           z.object({
             matchId: z.string().min(1),
-            selection: z.enum(["home", "draw", "away"]),
+            marketType: z.enum(["match-result", "correct-score", "over-under"]),
+            selection: z.string().min(1),
+            line: z.number().positive().optional(),
           }),
         )
         .min(1),
@@ -608,15 +681,19 @@ export const placeAccumulatorBetAction = createServerFn({ method: "POST" })
       .map((item) => {
         const match = state.matches.find((entry) => entry.id === item.matchId);
         if (!match) return null;
-        const odds =
-          item.selection === "home"
-            ? match.homeOdds
-            : item.selection === "draw"
-              ? match.drawOdds
-              : match.awayOdds;
-        const pick =
-          item.selection === "home" ? match.home : item.selection === "draw" ? "Draw" : match.away;
-        return { matchId: match.id, selection: item.selection, pick, odds };
+        const market = getMarketPickLabel(match, {
+          marketType: item.marketType,
+          selection: item.selection,
+          line: item.line,
+        });
+        return {
+          matchId: match.id,
+          marketType: item.marketType,
+          selection: item.selection,
+          pick: market.pick,
+          odds: market.odds,
+          line: item.line,
+        };
       })
       .filter(Boolean) as NonNullable<Bet["legs"]>[number][];
 
@@ -628,6 +705,7 @@ export const placeAccumulatorBetAction = createServerFn({ method: "POST" })
       userId: currentUser.id,
       matchId: legs.map((leg) => leg.matchId).join(","),
       kind: "accumulator",
+      marketType: legs[0].marketType,
       selection: legs[0].selection,
       pick: legs.map((leg) => leg.pick).join(" + "),
       stake: data.stake,
@@ -659,6 +737,45 @@ export const placeAccumulatorBetAction = createServerFn({ method: "POST" })
 
     await writeState(nextState);
     return { betId: bet.id };
+  });
+
+export const requestDepositAction = createServerFn({ method: "POST" })
+  .validator(
+    z.object({
+      amount: z.number().positive(),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const state = await readState();
+    const session = await getSession(SESSION_CONFIG);
+    const currentUser = getCurrentUser(state, session.data.userId ?? null);
+
+    if (!currentUser) throw new Error("Sign in first.");
+
+    const deposit: Deposit = {
+      id: createId("deposit"),
+      userId: currentUser.id,
+      amount: data.amount,
+      status: "requested",
+      createdAt: new Date().toISOString(),
+    };
+
+    const nextState: AppState = {
+      ...state,
+      deposits: [deposit, ...state.deposits],
+      notifications: [
+        {
+          id: createId("notification"),
+          title: "Deposit requested",
+          message: `${currentUser.name} requested a ${data.amount.toFixed(2)} wallet top-up.`,
+          createdAt: new Date().toISOString(),
+        },
+        ...state.notifications,
+      ],
+    };
+
+    await writeState(nextState);
+    return { depositId: deposit.id };
   });
 
 export const requestWithdrawalAction = createServerFn({ method: "POST" })
@@ -748,6 +865,45 @@ export const verifyKycAction = createServerFn({ method: "POST" }).handler(async 
   return { ok: true };
 });
 
+export const toggleWatchlistMatchAction = createServerFn({ method: "POST" })
+  .validator(z.object({ matchId: z.string().min(1) }))
+  .handler(async ({ data }) => {
+    const state = await readState();
+    const session = await getSession(SESSION_CONFIG);
+    const currentUser = getCurrentUser(state, session.data.userId ?? null);
+
+    if (!currentUser) throw new Error("Sign in first.");
+
+    const currentWatchlist = currentUser.watchlistMatchIds ?? [];
+    const isWatching = currentWatchlist.includes(data.matchId);
+    const nextWatchlist = isWatching
+      ? currentWatchlist.filter((id) => id !== data.matchId)
+      : [data.matchId, ...currentWatchlist];
+
+    const nextState: AppState = {
+      ...state,
+      users: state.users.map((user) =>
+        user.id === currentUser.id
+          ? { ...user, watchlistMatchIds: nextWatchlist }
+          : user,
+      ),
+      notifications: [
+        {
+          id: createId("notification"),
+          title: isWatching ? "Alert removed" : "Alert added",
+          message: isWatching
+            ? "A match was removed from your watchlist."
+            : "A match was added to your watchlist.",
+          createdAt: new Date().toISOString(),
+        },
+        ...state.notifications,
+      ],
+    };
+
+    await writeState(nextState);
+    return { ok: true, watching: !isWatching };
+  });
+
 export const submitKycAction = createServerFn({ method: "POST" })
   .validator(
     z.object({
@@ -817,7 +973,7 @@ export const createLocalMatchAction = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const state = await readState();
-    const match: Match = {
+    const baseMatch: Match = {
       id: createId("match"),
       status: data.status ?? "upcoming",
       sport: data.sport,
@@ -837,6 +993,26 @@ export const createLocalMatchAction = createServerFn({ method: "POST" })
         startedAt: new Date().toISOString(),
         durationMinutes: 12,
         seed: createSimulationSeed(),
+      },
+    };
+
+    const match: Match = {
+      ...baseMatch,
+      correctScoreOdds: Object.fromEntries(
+        ["0-0", "1-0", "0-1", "1-1", "2-0", "0-2", "2-1", "1-2"].map((scoreline) => [
+          scoreline,
+          getCorrectScoreOdds(baseMatch, scoreline),
+        ]),
+      ),
+      overUnderOdds: {
+        2.5: {
+          over: getOverUnderOdds(baseMatch, 2.5, "over"),
+          under: getOverUnderOdds(baseMatch, 2.5, "under"),
+        },
+        3.5: {
+          over: getOverUnderOdds(baseMatch, 3.5, "over"),
+          under: getOverUnderOdds(baseMatch, 3.5, "under"),
+        },
       },
     };
 
@@ -928,6 +1104,62 @@ export const rejectWithdrawalAction = createServerFn({ method: "POST" })
       withdrawal.id === data.id ? { ...withdrawal, status: "rejected" as const } : withdrawal,
     );
     await writeState({ ...state, withdrawals: nextWithdrawals });
+    return { ok: true };
+  });
+
+export const approveDepositAction = createServerFn({ method: "POST" })
+  .validator(z.object({ id: z.string().min(1) }))
+  .handler(async ({ data }) => {
+    const state = await readState();
+    const deposit = state.deposits.find((item) => item.id === data.id);
+    if (!deposit) throw new Error("Deposit not found.");
+
+    const nextState: AppState = {
+      ...state,
+      users: state.users.map((user) =>
+        user.id === deposit.userId
+          ? { ...user, balance: Number((user.balance + deposit.amount).toFixed(2)) }
+          : user,
+      ),
+      deposits: state.deposits.map((item) =>
+        item.id === data.id ? { ...item, status: "approved" as const } : item,
+      ),
+      notifications: [
+        {
+          id: createId("notification"),
+          title: "Deposit approved",
+          message: `Funds were added for ${deposit.amount.toFixed(2)}.`,
+          createdAt: new Date().toISOString(),
+        },
+        ...state.notifications,
+      ],
+    };
+
+    await writeState(nextState);
+    return { ok: true };
+  });
+
+export const rejectDepositAction = createServerFn({ method: "POST" })
+  .validator(z.object({ id: z.string().min(1) }))
+  .handler(async ({ data }) => {
+    const state = await readState();
+    const nextState: AppState = {
+      ...state,
+      deposits: state.deposits.map((item) =>
+        item.id === data.id ? { ...item, status: "rejected" as const } : item,
+      ),
+      notifications: [
+        {
+          id: createId("notification"),
+          title: "Deposit rejected",
+          message: "A requested wallet top-up was rejected.",
+          createdAt: new Date().toISOString(),
+        },
+        ...state.notifications,
+      ],
+    };
+
+    await writeState(nextState);
     return { ok: true };
   });
 
